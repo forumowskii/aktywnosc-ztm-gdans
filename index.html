@@ -2,8 +2,36 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Kursy pojazdów w Gdańsku</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#007bff">
+    <meta name="description" content="Śledzenie pojazdów ZTM Gdańsk w czasie rzeczywistym">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="ZTM Tracker">
+    <meta name="application-name" content="ZTM Tracker">
+    <meta name="msapplication-TileColor" content="#007bff">
+    <meta name="msapplication-config" content="/browserconfig.xml">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/icon-120x120.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="/icon-114x114.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="/icon-76x76.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="/icon-72x72.png">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/icon-16x16.png">
+    <link rel="shortcut icon" href="/favicon.ico">
+    
     <style>
         :root {
             --primary: #0d6efd;
@@ -20,6 +48,181 @@
             margin: 0;
             background-color: #eef2f5;
             color: #333;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            body {
+                font-size: 14px;
+            }
+            
+            header {
+                padding: 15px 20px;
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .logo h1 {
+                font-size: 22px;
+                text-align: center;
+            }
+            
+            .clock {
+                font-size: 16px;
+                text-align: center;
+            }
+            
+            .container {
+                margin: 10px;
+                border-radius: 0;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            
+            .date-bar {
+                padding: 15px;
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .date-controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .date-controls button {
+                width: 100%;
+                margin: 5px 0;
+            }
+            
+            .agency-buttons {
+                flex-wrap: wrap;
+                gap: 5px;
+            }
+            
+            .agency-btn {
+                font-size: 12px;
+                padding: 8px 12px;
+                flex: 1;
+                min-width: 80px;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab-btn {
+                border-radius: 0;
+                text-align: center;
+                padding: 12px;
+            }
+            
+            .tab-btn:first-child {
+                border-top-left-radius: 8px;
+                border-top-right-radius: 8px;
+            }
+            
+            .tab-btn:last-child {
+                border-bottom-left-radius: 8px;
+                border-bottom-right-radius: 8px;
+            }
+            
+            .tab-content {
+                padding: 15px;
+            }
+            
+            .controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .controls input, .controls select {
+                width: 100%;
+            }
+            
+            table {
+                font-size: 12px;
+            }
+            
+            th, td {
+                padding: 8px 4px;
+            }
+            
+            .line-brigade {
+                font-size: 11px;
+            }
+            
+            .admin-panel {
+                padding: 15px;
+            }
+            
+            .admin-controls {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            .admin-controls input, .admin-controls select {
+                width: 100%;
+            }
+            
+            .admin-controls button {
+                width: 100%;
+                margin: 5px 0;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .logo h1 {
+                font-size: 20px;
+            }
+            
+            .clock {
+                font-size: 14px;
+            }
+            
+            .agency-btn {
+                font-size: 11px;
+                padding: 6px 10px;
+                min-width: 70px;
+            }
+            
+            table {
+                font-size: 11px;
+            }
+            
+            th, td {
+                padding: 6px 2px;
+            }
+            
+            .modal-content {
+                width: 95% !important;
+                max-width: none !important;
+                margin: 10px !important;
+                padding: 15px !important;
+            }
+        }
+
+        /* PWA Standalone Mode */
+        @media (display-mode: standalone) {
+            header {
+                padding-top: calc(20px + env(safe-area-inset-top));
+            }
+            
+            .container {
+                margin-top: 0;
+            }
+            
+            body {
+                background-color: #ffffff;
+            }
+        }
+
+        /* iOS Safari PWA */
+        @supports (-webkit-touch-callout: none) {
+            .container {
+                margin-bottom: env(safe-area-inset-bottom);
+            }
         }
 
         header {
@@ -366,6 +569,8 @@
                 <button class="tab-btn" style="background-color:#198754; color:white; padding: 8px 16px; border-radius:4px;" onclick="fetchZtmData()">Odśwież z API</button>
                 <button class="tab-btn" style="background-color:#6c757d; color:white; padding: 8px 16px; border-radius:4px; margin-left: 10px;" onclick="viewSavedData()">📊 Zobacz dane</button>
                 <button class="tab-btn" style="background-color:#17a2b8; color:white; padding: 8px 16px; border-radius:4px; margin-left: 10px;" onclick="loadTodayData()">📂 Wczytaj dane</button>
+                <button class="tab-btn" style="background-color:#6f42c1; color:white; padding: 8px 16px; border-radius:4px; margin-left: 10px;" onclick="viewBackups()">📁 Backupy</button>
+                <button class="tab-btn" style="background-color:#dc3545; color:white; padding: 8px 16px; border-radius:4px; margin-left: 10px;" onclick="viewReports()">📄 Raporty</button>
             </div>
         </div>
 
@@ -488,6 +693,90 @@
             document.getElementById('calendar').value = selectedDate.toISOString().split('T')[0];
             // Auto odświeżanie po załadowaniu strony
             fetchZtmData();
+            
+            // PWA Service Worker Registration
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('✅ Service Worker zarejestrowany:', registration.scope);
+                        
+                        // Sprawdź aktualizacje Service Workera
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    console.log('🔄 Nowa wersja aplikacji dostępna');
+                                    // Pokaż użytkownikowi opcję przeładowania
+                                    if (confirm('Dostępna nowa wersja aplikacji. Czy chcesz zaktualizować?')) {
+                                        window.location.reload();
+                                    }
+                                }
+                            });
+                        });
+                    })
+                    .catch(error => {
+                        console.log('❌ Błąd rejestracji Service Workera:', error);
+                    });
+            } else {
+                console.log('⚠️ Service Worker nie jest wspierany');
+            }
+            
+            // PWA Install Prompt
+            let deferredPrompt;
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                console.log('📱 PWA install prompt gotowe');
+                
+                // Pokaż przycisk instalacji (opcjonalnie)
+                const installBtn = document.createElement('button');
+                installBtn.textContent = '📱 Zainstaluj aplikację';
+                installBtn.style.cssText = `
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    background: #007bff;
+                    color: white;
+                    border: none;
+                    padding: 12px 20px;
+                    border-radius: 25px;
+                    font-size: 14px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    box-shadow: 0 4px 15px rgba(0,123,255,0.3);
+                    z-index: 1000;
+                    transition: all 0.3s ease;
+                `;
+                
+                installBtn.addEventListener('click', () => {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then((choiceResult) => {
+                        if (choiceResult.outcome === 'accepted') {
+                            console.log('✅ Użytkownik zaakceptował instalację');
+                        } else {
+                            console.log('❌ Użytkownik odrzucił instalację');
+                        }
+                        deferredPrompt = null;
+                        installBtn.remove();
+                    });
+                });
+                
+                document.body.appendChild(installBtn);
+                
+                // Ukryj przycisk po 10 sekundach
+                setTimeout(() => {
+                    if (installBtn.parentNode) {
+                        installBtn.style.opacity = '0';
+                        setTimeout(() => installBtn.remove(), 300);
+                    }
+                }, 10000);
+            });
+            
+            // Sprawdź czy aplikacja jest w trybie standalone
+            if (window.matchMedia('(display-mode: standalone)').matches) {
+                console.log('📱 Aplikacja działa w trybie PWA');
+                document.body.classList.add('pwa-standalone');
+            }
         });
 
         function updateDateBar(baseDate) {
@@ -1044,6 +1333,232 @@
             console.log('🗑️ Wyczyszczono logi zapisu');
             // Odśwież widok
             viewSavedData();
+        }
+
+        function viewBackups() {
+            fetch('/api/daily-backups')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.backups && data.backups.length > 0) {
+                        displayBackups(data.backups);
+                    } else {
+                        alert('Brak dostępnych backupów');
+                    }
+                })
+                .catch(error => {
+                    console.error('Błąd pobierania backupów:', error);
+                    alert('Błąd pobierania backupów');
+                });
+        }
+
+        function displayBackups(backups) {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.8);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+            `;
+            
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background: white;
+                padding: 30px;
+                border-radius: 10px;
+                max-width: 900px;
+                max-height: 85vh;
+                overflow-y: auto;
+                position: relative;
+            `;
+            
+            const backupsHtml = backups.map(backup => `
+                <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 5px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h3 style="margin: 0; color: #333;">📅 ${backup.date}</h3>
+                        <span style="color: #666; font-size: 12px;">${new Date(backup.created).toLocaleString('pl-PL')}</span>
+                    </div>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button onclick="loadBackupData('${backup.date}')" style="padding: 6px 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">📊 Wczytaj dane</button>
+                        <button onclick="downloadBackup('${backup.date}')" style="padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">💾 Pobierz JSON</button>
+                        <button onclick="viewBackupReport('${backup.date}')" style="padding: 6px 12px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer;">📄 Raport</button>
+                        <span style="padding: 6px 12px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;">📁 ${(backup.size / 1024 / 1024).toFixed(2)} MB</span>
+                    </div>
+                </div>
+            `).join('');
+            
+            content.innerHTML = `
+                <h2 style="margin-top: 0; color: #333;">📁 Backupy dziennie</h2>
+                <p style="color: #666; margin-bottom: 20px;">Dostępne backupy: ${backups.length} (ostatnie 30 dni)</p>
+                ${backupsHtml}
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button onclick="loadAllBackupsMerged()" style="padding: 10px 20px; background: #6f42c1; color: white; border: none; border-radius: 5px; cursor: pointer;">🔄 Wczytaj wszystkie połączone</button>
+                    <button onclick="this.parentElement.parentElement.remove()" style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer;">Zamknij</button>
+                </div>
+            `;
+            
+            modal.appendChild(content);
+            document.body.appendChild(modal);
+            
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            });
+        }
+
+        function loadBackupData(date) {
+            fetch(`/api/daily-backup/${date}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.data && data.data.vehicles) {
+                        // Zapisz dane do localStorage
+                        localStorage.setItem('savedBusData', JSON.stringify(data.data.vehicles));
+                        
+                        // Aktualizuj interfejs
+                        renderActiveVehicles();
+                        renderInactiveVehicles();
+                        
+                        // Pokaż info
+                        alert(`✅ Wczytano backup z dnia ${date} (${data.data.vehicles.length} pojazdów)`);
+                        
+                        // Zamknij modal
+                        document.querySelector('[style*="position: fixed"]').remove();
+                        
+                        console.log(`📂 Wczytano backup z dnia ${date}:`, data.summary);
+                    } else {
+                        alert('Błąd wczytywania danych backupu');
+                    }
+                })
+                .catch(error => {
+                    console.error('Błąd wczytywania backupu:', error);
+                    alert('Błąd wczytywania backupu');
+                });
+        }
+
+        function loadAllBackupsMerged() {
+            fetch('/api/all-backups-merged')
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.vehicles) {
+                        // Zapisz dane do localStorage
+                        localStorage.setItem('savedBusData', JSON.stringify(data.vehicles));
+                        
+                        // Aktualizuj interfejs
+                        renderActiveVehicles();
+                        renderInactiveVehicles();
+                        
+                        // Pokaż info
+                        alert(`✅ Wczytano wszystkie backupy połączone (${data.vehicles.length} pojazdów z ${data.totalBackups} backupów)`);
+                        
+                        // Zamknij modal
+                        document.querySelector('[style*="position: fixed"]').remove();
+                        
+                        console.log('🔄 Wczytano wszystkie backupy połączone:', data.summary);
+                    } else {
+                        alert('Błąd wczytywania połączonych backupów');
+                    }
+                })
+                .catch(error => {
+                    console.error('Błąd wczytywania połączonych backupów:', error);
+                    alert('Błąd wczytywania połączonych backupów');
+                });
+        }
+
+        function downloadBackup(date) {
+            window.open(`/api/daily-backup/${date}`, '_blank');
+        }
+
+        function viewBackupReport(date) {
+            window.open(`/api/daily-report/${date}`, '_blank');
+        }
+
+        function viewReports() {
+            fetch('/api/daily-reports')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.reports && data.reports.length > 0) {
+                        displayReports(data.reports);
+                    } else {
+                        alert('Brak dostępnych raportów');
+                    }
+                })
+                .catch(error => {
+                    console.error('Błąd pobierania raportów:', error);
+                    alert('Błąd pobierania raportów');
+                });
+        }
+
+        function displayReports(reports) {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.8);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+            `;
+            
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background: white;
+                padding: 30px;
+                border-radius: 10px;
+                max-width: 800px;
+                max-height: 85vh;
+                overflow-y: auto;
+                position: relative;
+            `;
+            
+            const reportsHtml = reports.map(report => `
+                <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 5px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h3 style="margin: 0; color: #333;">📄 ${report.date}</h3>
+                        <span style="color: #666; font-size: 12px;">${new Date(report.created).toLocaleString('pl-PL')}</span>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="viewReport('${report.date}')" style="padding: 6px 12px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer;">👁️ Zobacz raport</button>
+                        <button onclick="downloadReport('${report.date}')" style="padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">💾 Pobierz TXT</button>
+                        <span style="padding: 6px 12px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;">📄 ${(report.size / 1024).toFixed(1)} KB</span>
+                    </div>
+                </div>
+            `).join('');
+            
+            content.innerHTML = `
+                <h2 style="margin-top: 0; color: #333;">📄 Raporty dzienne</h2>
+                <p style="color: #666; margin-bottom: 20px;">Dostępne raporty: ${reports.length} (ostatnie 30 dni)</p>
+                ${reportsHtml}
+                <div style="margin-top: 20px;">
+                    <button onclick="this.parentElement.parentElement.remove()" style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer;">Zamknij</button>
+                </div>
+            `;
+            
+            modal.appendChild(content);
+            document.body.appendChild(modal);
+            
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            });
+        }
+
+        function viewReport(date) {
+            window.open(`/api/daily-report/${date}`, '_blank');
+        }
+
+        function downloadReport(date) {
+            window.open(`/api/daily-report/${date}`, '_blank');
         }
 
         function startDataCollection() {
