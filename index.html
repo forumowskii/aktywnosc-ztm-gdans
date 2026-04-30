@@ -1335,7 +1335,28 @@
         }
 
         function renderActiveVehicles() {
-            const data = JSON.parse(localStorage.getItem('savedBusData') || '[]');
+            // Najpierw spróbuj pobrać dane z serwera
+            fetch('/api/pojazdy')
+                .then(response => response.json())
+                .then(serverData => {
+                    if (serverData && serverData.vehicles && serverData.vehicles.length > 0) {
+                        console.log('📊 Używam danych z serwera:', serverData.vehicles.length);
+                        renderActiveTable(serverData.vehicles);
+                    } else {
+                        // Fallback do localStorage
+                        console.log('📁 Używam danych z localStorage');
+                        const localData = JSON.parse(localStorage.getItem('savedBusData') || '[]');
+                        renderActiveTable(localData);
+                    }
+                })
+                .catch(error => {
+                    console.log('❌ Błąd pobierania z serwera, używam localStorage:', error);
+                    const localData = JSON.parse(localStorage.getItem('savedBusData') || '[]');
+                    renderActiveTable(localData);
+                });
+        }
+
+        function renderActiveTable(data) {
             console.log('Renderuję pojazdy - wszystkich:', data.length, 'aktywne agencje:', activeAgencies);
             
             const tbody = document.getElementById('active-table-body');
@@ -1495,13 +1516,40 @@
         }
 
         function renderInactiveVehicles() {
-            const data = JSON.parse(localStorage.getItem('savedBusData') || '[]');
+            // Najpierw spróbuj pobrać dane z serwera
+            fetch('/api/pojazdy')
+                .then(response => response.json())
+                .then(serverData => {
+                    if (serverData && serverData.vehicles && serverData.vehicles.length > 0) {
+                        console.log('📊 Używam danych z serwera:', serverData.vehicles.length);
+                        renderInactiveTable(serverData.vehicles);
+                    } else {
+                        // Fallback do localStorage
+                        console.log('📁 Używam danych z localStorage');
+                        const localData = JSON.parse(localStorage.getItem('savedBusData') || '[]');
+                        renderInactiveTable(localData);
+                    }
+                })
+                .catch(error => {
+                    console.log('❌ Błąd pobierania z serwera, używam localStorage:', error);
+                    const localData = JSON.parse(localStorage.getItem('savedBusData') || '[]');
+                    renderInactiveTable(localData);
+                });
+        }
+
+        function renderInactiveTable(data) {
             const tbody = document.getElementById('inactive-table-body');
             tbody.innerHTML = '';
 
-            // Filtruj tylko nieaktywne pojazdy
-            let filteredData = data.filter(item => activeAgencies.includes(item.agency) && !item.isActive);
+            // Filtruj po przewoźnikach
+            let filteredData = data.filter(item => activeAgencies.includes(item.agency));
             
+            // Jeśli nie ma danych, pokaż komunikat
+            if (filteredData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="empty-state">Brak danych dla wybranych przewoźników.</td></tr>`;
+                return;
+            }
+
             // Dodaj obliczone dni temu do każdego pojazdu
             filteredData = filteredData.map(bus => {
                 const lastActiveDate = new Date(bus.timestamp);
@@ -1537,6 +1585,8 @@
                 return;
             }
 
+            console.log('📊 Renderuję', filteredData.length, 'pojazdów w tabeli nieaktywnych');
+
             filteredData.forEach(bus => {
                 const tr = document.createElement('tr');
                 const lastActiveDate = new Date(bus.timestamp);
@@ -1544,6 +1594,10 @@
                 // Formatuj czas ostatniej aktywności
                 const formattedDate = lastActiveDate.toLocaleDateString('pl-PL');
                 const formattedTime = lastActiveDate.toLocaleTimeString('pl-PL');
+                
+                // Określ status aktywności na podstawie ostatniej aktywności
+                const hoursAgo = (new Date() - lastActiveDate) / (1000 * 60 * 60);
+                const isActive = hoursAgo <= 1; // Aktywny jeśli ostatnia aktywność ≤ 1 godzina
                 
                 tr.innerHTML = `
                     <td><strong>${bus.id}</strong></td>
