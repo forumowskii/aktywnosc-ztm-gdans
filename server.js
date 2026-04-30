@@ -33,7 +33,8 @@ async function fetchAndSaveData() {
         const categoryResponse = await fetch('https://ckan.multimediagdansk.pl/dataset/c24aa637-3619-4dc2-a171-a23eec8f2172/resource/8b5175e6-7621-4149-a9f8-a29696c73d8d/download/kategorie.json');
         const categories = categoryResponse.ok ? await categoryResponse.json() : [];
 
-        const vehicles = processAllData(vehicleDatabase, gpsData, categories);
+        // 4) Przetwarzaj i łącz dane
+        const vehicles = processAndMergeData(vehicleDatabase, gpsData, categories);
 
         const completeData = {
             vehicles,
@@ -47,20 +48,31 @@ async function fetchAndSaveData() {
 
         console.log('💾 Kompletne dane zapisano na dysku:', new Date().toLocaleTimeString());
         console.log('📊 vehicles:', Array.isArray(vehicles) ? vehicles.length : 0);
+        console.log('🔄 Połączone dane (aktywne + historyczne):', vehicles.length);
     } catch (e) {
         console.error('❌ Błąd pobierania danych:', e && e.message ? e.message : e);
     }
 }
 
-// Pierwsze pobranie od razu + cyklicznie co 2 minuty
-fetchAndSaveData();
-setInterval(fetchAndSaveData, 120000);
-
-// Funkcja przetwarzająca wszystkie dane
-function processAllData(vehicleData, gpsData, categoryData) {
-    const processed = [];
+function processAndMergeData(vehicleDatabase, gpsData, categoryData) {
     const now = new Date();
+    let mergedData = [];
+    
+    // 1) Wczytaj istniejące dane z pliku
+    let existingData = [];
+    try {
+        const existingFilePath = path.join(__dirname, 'pojazdy.json');
+        if (fs.existsSync(existingFilePath)) {
+            const existingFile = JSON.parse(fs.readFileSync(existingFilePath, 'utf8'));
+            existingData = existingFile.vehicles || [];
+            console.log('📂 Wczytano istniejących pojazdów:', existingData.length);
+        }
+    } catch (error) {
+        console.log('⚠️ Nie udało się wczytać istniejących danych:', error.message);
+    }
 
+    // 2) Przetwarzaj aktualne dane z GPS
+    const currentVehicles = [];
     if (gpsData && Array.isArray(gpsData.vehicles)) {
         gpsData.vehicles.forEach((gps) => {
             const vehicleId = gps.vehicleCode || gps.VehicleCode || gps.VehicleID;
@@ -80,8 +92,8 @@ function processAllData(vehicleData, gpsData, categoryData) {
             let model = "Nieznany";
             let type = "Autobus";
 
-            if (vehicleData && Array.isArray(vehicleData.results)) {
-                const vehicleInfo = vehicleData.results.find(v => 
+            if (vehicleDatabase && Array.isArray(vehicleDatabase.results)) {
+                const vehicleInfo = vehicleDatabase.results.find(v => 
                     (v.vehicleCode === vehicleId || v.VehicleCode === vehicleId || v.VehicleID === vehicleId)
                 );
                 if (vehicleInfo) {
@@ -103,7 +115,7 @@ function processAllData(vehicleData, gpsData, categoryData) {
                 routeTime = `${startHour}:${startMin} - ${currentHour}:${currentMin}`;
             }
 
-            processed.push({
+            currentVehicles.push({
                 id: vehicleId.toString(),
                 agency: agency,
                 model: model,
@@ -122,8 +134,75 @@ function processAllData(vehicleData, gpsData, categoryData) {
         });
     }
 
-    return processed;
+    console.log('📍 Aktualne pojazdy z GPS:', currentVehicles.length);
+
+    // 3) Łącz dane - aktualizuj istniejące, dodaj nowe, zachowaj znikające
+    const currentVehicleIds = new Set(currentVehicles.map(v => v.id));
+    const existingVehicleIds = new Set(existingData.map(v => v.id));
+
+    // a) Dodaj/aktualizuj aktualne pojazdy
+    currentVehicles.forEach(currentVehicle => {
+        const existingIndex = existingData.findIndex(v => v.id === currentVehicle.id);
+        
+        if (existingIndex !== -1) {
+            // Aktualizuj istniejący pojazd
+            existingData[existingIndex] = {
+                ...existingData[existingIndex],
+                ...currentVehicle,
+                // Zachowaj oryginalny timestamp jeśli był starszy (historia)
+                timestamp: existingData[existingIndex].timestamp && 
+                          new Date(existingData[existingIndex].timestamp) < new Date(currentVehicle.timestamp) ?
+                          existingData[existingIndex].timestamp : currentVehicle.timestamp
+            };
+        } else {
+            // Dodaj nowy pojazd
+            mergedData.push(currentVehicle);
+        }
+    });
+
+    // b) Dodaj istniejące pojazdy, które nie są już aktywne (zostały w historycznych)
+    existingData.forEach(existingVehicle => {
+        if (!currentVehicleIds.has(existingVehicle.id)) {
+            // Pojazd nie jest już aktywny - zachowaj go z aktualnym czasem
+            mergedData.push({
+                ...existingVehicle,
+                isActive: false,
+                timestamp: new Date().toISOString() // Aktualizuj czas "ostatniej aktywności"
+            });
+        }
+    });
+
+    // c) Dodaj zaktualizowane pojazdy z existingData
+    existingData.forEach(existingVehicle => {
+        if (currentVehicleIds.has(existingVehicle.id)) {
+            mergedData.push(existingVehicle);
+        }
+    });
+
+    // d) Usuń duplikaty i sortuj
+    const uniqueVehicles = [];
+    const seenIds = new Set();
+
+    mergedData.forEach(vehicle => {
+        if (!seenIds.has(vehicle.id)) {
+            seenIds.add(vehicle.id);
+            uniqueVehicles.push(vehicle);
+        }
+    });
+
+    // Sortuj po timestamp (najnowsze na górze)
+    uniqueVehicles.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    console.log('🔄 Połączone dane:', uniqueVehicles.length);
+    console.log('   - Aktywne:', uniqueVehicles.filter(v => v.isActive).length);
+    console.log('   - Nieaktywne:', uniqueVehicles.filter(v => !v.isActive).length);
+
+    return uniqueVehicles;
 }
+
+// Pierwsze pobranie od razu + cyklicznie co 2 minuty
+fetchAndSaveData();
+setInterval(fetchAndSaveData, 120000);
 
 // Endpoint dla pobierania pojazdów
 app.get('/api/pojazdy', (req, res) => {

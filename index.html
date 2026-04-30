@@ -912,10 +912,14 @@
             const savedData = JSON.parse(localStorage.getItem('savedBusData') || '[]');
             const serverData = JSON.parse(localStorage.getItem('serverData') || '{}');
             
+            // Pobierz logi zapisu danych z localStorage
+            const saveLogs = JSON.parse(localStorage.getItem('saveLogs') || '[]');
+            
             console.log('📊 Przeglądanie zapisanych danych:');
             console.log('Pojazdy:', savedData.length);
             console.log('Trasy:', vehicleRoutes);
             console.log('Dane serwera:', serverData);
+            console.log('Logi zapisu:', saveLogs);
             
             // Stwórz okno modal do wyświetlenia danych
             const modal = document.createElement('div');
@@ -937,11 +941,23 @@
                 background: white;
                 padding: 30px;
                 border-radius: 10px;
-                max-width: 800px;
-                max-height: 80vh;
+                max-width: 900px;
+                max-height: 85vh;
                 overflow-y: auto;
                 position: relative;
             `;
+            
+            // Przygotuj logi zapisu danych
+            const logsHtml = saveLogs.length > 0 ? 
+                saveLogs.slice(-20).reverse().map(log => `
+                    <div style="padding: 8px; border-bottom: 1px solid #eee; font-family: monospace; font-size: 12px;">
+                        <span style="color: #666;">${log.timestamp}</span> 
+                        <span style="color: #28a745; font-weight: bold;">${log.count}</span> pojazdów 
+                        <span style="color: #666;">- ${log.source}</span>
+                        ${log.error ? `<span style="color: #dc3545;">❌ ${log.error}</span>` : ''}
+                    </div>
+                `).join('') : 
+                '<div style="padding: 20px; text-align: center; color: #666;">Brak logów zapisu danych</div>';
             
             content.innerHTML = `
                 <h2 style="margin-top: 0; color: #333;">📊 Zapisane dane</h2>
@@ -952,8 +968,17 @@
                         <p><strong>Data ostatnie zapisu:</strong> ${serverData.timestamp ? new Date(serverData.timestamp).toLocaleString('pl-PL') : 'Brak'}</p>
                         <p><strong>Wybrana data:</strong> ${serverData.selectedDate ? new Date(serverData.selectedDate).toLocaleDateString('pl-PL') : 'Brak'}</p>
                     </div>
+                    
                     <div>
-                        <h3>🚊 Aktywne pojazdy (${savedData.filter(v => v.isActive).length})</h3>
+                        <h3>� Logi zapisu danych (ostatnie 20)</h3>
+                        <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px; background: #f8f9fa;">
+                            ${logsHtml}
+                        </div>
+                        ${saveLogs.length > 20 ? `<div style="text-align: center; color: #666; margin-top: 10px;">Pokazano ostatnie 20 z ${saveLogs.length} logów</div>` : ''}
+                    </div>
+                    
+                    <div>
+                        <h3>� Aktywne pojazdy (${savedData.filter(v => v.isActive).length})</h3>
                         <div style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px;">
                             ${savedData.filter(v => v.isActive).slice(0, 10).map(v => `
                                 <div style="padding: 5px 0; border-bottom: 1px solid #eee;">
@@ -963,6 +988,7 @@
                             ${savedData.filter(v => v.isActive).length > 10 ? `<div style="text-align: center; color: #666;">... i ${savedData.filter(v => v.isActive).length - 10} więcej</div>` : ''}
                         </div>
                     </div>
+                    
                     <div>
                         <h3>🗃️ Trasy pojazdów</h3>
                         <div style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px;">
@@ -976,7 +1002,10 @@
                         </div>
                     </div>
                 </div>
-                <button onclick="this.parentElement.parentElement.remove()" style="margin-top: 20px; padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer;">Zamknij</button>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button onclick="clearSaveLogs()" style="padding: 8px 16px; background: #ffc107; color: black; border: none; border-radius: 5px; cursor: pointer;">🗑️ Wyczyść logi</button>
+                    <button onclick="this.parentElement.parentElement.remove()" style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer;">Zamknij</button>
+                </div>
             `;
             
             modal.appendChild(content);
@@ -988,6 +1017,33 @@
                     modal.remove();
                 }
             });
+        }
+
+        function addSaveLog(count, source, error = null) {
+            const logs = JSON.parse(localStorage.getItem('saveLogs') || '[]');
+            const newLog = {
+                timestamp: new Date().toLocaleString('pl-PL'),
+                count: count,
+                source: source,
+                error: error
+            };
+            
+            logs.push(newLog);
+            
+            // Zachowaj tylko ostatnie 100 logów
+            if (logs.length > 100) {
+                logs.splice(0, logs.length - 100);
+            }
+            
+            localStorage.setItem('saveLogs', JSON.stringify(logs));
+            console.log('📝 Dodano log zapisu:', newLog);
+        }
+
+        function clearSaveLogs() {
+            localStorage.setItem('saveLogs', JSON.stringify([]));
+            console.log('🗑️ Wyczyszczono logi zapisu');
+            // Odśwież widok
+            viewSavedData();
         }
 
         function startDataCollection() {
@@ -1015,6 +1071,9 @@
             
             // Zapisz w localStorage jako backup
             localStorage.setItem('serverData', JSON.stringify(data));
+            
+            // Dodaj log zapisu
+            addSaveLog(data.vehicles.length, 'localStorage');
             
             // Aktualizuj status serwera
             const serverStatus = document.getElementById('server-status');
@@ -1052,15 +1111,14 @@
                     serverStatus.innerText = `🌐 Serwer: ${result.vehicles} pojazdów (${new Date().toLocaleTimeString()})`;
                     serverStatus.style.color = '#007bff';
                 }
+                
+                // Dodaj log zapisu z serwera
+                addSaveLog(result.vehicles.length, 'server');
             })
             .catch(error => {
                 console.error('❌ Błąd zapisu na serwerze:', error);
-                // Powrót do lokalnego storage
-                const serverStatus = document.getElementById('server-status');
-                if (serverStatus) {
-                    serverStatus.innerText = '❌ Błąd serwera (lokalny storage)';
-                    serverStatus.style.color = '#dc3545';
-                }
+                // Dodaj log błędu
+                addSaveLog(0, 'server', error.message);
             });
             */
         }
@@ -1141,45 +1199,120 @@
 
         async function fetchZtmData() {
             try {
-                console.log('Rozpoczynam pobieranie danych z API...');
+                console.log('🔄 Rozpoczynam pobieranie danych z serwera...');
                 
-                // Najpierw pobierz dane z serwera (historia)
-                const serverData = await fetchServerData();
+                // Najpierw spróbuj pobrać dane z serwera lokalnego
+                try {
+                    const serverResponse = await fetch('/api/pojazdy');
+                    if (serverResponse.ok) {
+                        const serverData = await serverResponse.json();
+                        if (serverData && serverData.vehicles && serverData.vehicles.length > 0) {
+                            console.log('✅ Pobrano dane z serwera:', serverData.vehicles.length);
+                            hideApiWarning();
+                            parseDataToStorage(serverData.vehicleDatabase, serverData.gpsData, serverData.categories, serverData);
+                            return;
+                        }
+                    }
+                } catch (serverError) {
+                    console.log('❌ Serwer niedostępny, przechodzę na API:', serverError.message);
+                }
                 
-                // Pobieranie danych z bazy pojazdów
-                console.log('Pobieranie bazy pojazdów...');
+                // Jeśli serwer nie działa, pobierz z API i pokaż ostrzeżenie
+                console.log('🌐 Pobieranie danych z API (serwer niedostępny)...');
+                showApiWarning();
+                
+                // Pobieranie bazy pojazdów
+                console.log('📋 Pobieranie bazy pojazdów...');
                 const vehicleResponse = await fetch('https://files.cloudgdansk.pl/d/otwarte-dane/ztm/baza-pojazdow.json?v=2');
-                console.log('Response vehicle:', vehicleResponse.status, vehicleResponse.statusText);
-                
                 if (!vehicleResponse.ok) throw new Error('Błąd połączenia z bazą pojazdów');
                 
                 const vehicleData = await vehicleResponse.json();
-                console.log('Pobrano pojazdów:', vehicleData?.count || 'brak danych');
                 
-                // Pobieranie aktualnych pozycji GPS
-                console.log('Pobieranie pozycji GPS...');
+                // Pobieranie pozycji GPS
+                console.log('📍 Pobieranie pozycji GPS...');
                 const gpsResponse = await fetch('https://ckan2.multimediagdansk.pl/gpsPositions?v=2');
-                console.log('Response GPS:', gpsResponse.status, gpsResponse.statusText);
-                
                 if (!gpsResponse.ok) throw new Error('Błąd połączenia z pozycjami GPS');
                 
                 const gpsData = await gpsResponse.json();
-                console.log('Pobrano pozycji GPS:', gpsData?.vehicles?.length || 0);
                 
                 // Pobieranie kategorii linii
-                console.log('Pobieranie kategorii linii...');
+                console.log('🚊 Pobieranie kategorii linii...');
                 const categoryResponse = await fetch('https://ckan.multimediagdansk.pl/dataset/c24aa637-3619-4dc2-a171-a23eec8f2172/resource/8b5175e6-7621-4149-a9f8-a29696c73d8d/download/kategorie.json');
                 const categoryData = categoryResponse.ok ? await categoryResponse.json() : [];
+                
                 console.log('Pobrano kategorii:', categoryData?.length || 0);
                 
                 console.log('Przetwarzanie danych...');
-                parseDataToStorage(vehicleData, gpsData, categoryData, serverData);
+                parseDataToStorage(vehicleData, gpsData, categoryData, null);
                 console.log('Dane przetworzone pomyślnie');
                 
             } catch (error) {
-                console.error('Szczegółowy błąd API:', error);
-                alert("Błąd połączenia z API: " + error.message + "\nŁadowanie danych przykładowych.");
+                console.error('Błąd API:', error);
+                showApiWarning();
+                alert("Błąd połączenia z API. Ładowanie danych przykładowych.");
                 loadMockData();
+            }
+        }
+
+        function showApiWarning() {
+            // Sprawdź czy ostrzeżenie już istnieje
+            let warningBar = document.getElementById('api-warning-bar');
+            
+            if (!warningBar) {
+                warningBar = document.createElement('div');
+                warningBar.id = 'api-warning-bar';
+                warningBar.style.cssText = `
+                    background: linear-gradient(90deg, #dc3545, #c82333);
+                    color: white;
+                    padding: 12px 20px;
+                    text-align: center;
+                    font-weight: bold;
+                    font-size: 14px;
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    z-index: 9999;
+                    box-shadow: 0 2px 10px rgba(220, 53, 69, 0.3);
+                    animation: slideDown 0.3s ease-out;
+                `;
+                
+                warningBar.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                        <span style="font-size: 18px;">⚠️</span>
+                        <span>POBIERANE DANE SĄ Z API NIE Z SERWERA - Serwer lokalny niedostępny</span>
+                        <span style="font-size: 18px;">⚠️</span>
+                    </div>
+                `;
+                
+                // Dodaj animację CSS
+                const style = document.createElement('style');
+                style.textContent = `
+                    @keyframes slideDown {
+                        from { transform: translateY(-100%); opacity: 0; }
+                        to { transform: translateY(0); opacity: 1; }
+                    }
+                `;
+                document.head.appendChild(style);
+                
+                document.body.appendChild(warningBar);
+                
+                // Przesuń resztę treści w dół
+                const mainContent = document.querySelector('.container');
+                if (mainContent) {
+                    mainContent.style.marginTop = '50px';
+                }
+            }
+        }
+
+        function hideApiWarning() {
+            const warningBar = document.getElementById('api-warning-bar');
+            if (warningBar) {
+                warningBar.remove();
+                const mainContent = document.querySelector('.container');
+                if (mainContent) {
+                    mainContent.style.marginTop = '0';
+                }
             }
         }
 
@@ -1312,6 +1445,10 @@
             console.log('Aktywne przewoźnicy:', [...new Set(processed.map(p => p.agency))]);
             
             localStorage.setItem('savedBusData', JSON.stringify(processed));
+            
+            // Dodaj log zapisu danych
+            addSaveLog(processed.length, 'API');
+            
             updateTitle();
             renderActiveVehicles();
             document.getElementById('last-update').innerText = 'Zaktualizowano: ' + new Date().toLocaleTimeString();
@@ -1341,16 +1478,19 @@
                 .then(serverData => {
                     if (serverData && serverData.vehicles && serverData.vehicles.length > 0) {
                         console.log('📊 Używam danych z serwera:', serverData.vehicles.length);
+                        hideApiWarning();
                         renderActiveTable(serverData.vehicles);
                     } else {
                         // Fallback do localStorage
                         console.log('📁 Używam danych z localStorage');
+                        showApiWarning();
                         const localData = JSON.parse(localStorage.getItem('savedBusData') || '[]');
                         renderActiveTable(localData);
                     }
                 })
                 .catch(error => {
                     console.log('❌ Błąd pobierania z serwera, używam localStorage:', error);
+                    showApiWarning();
                     const localData = JSON.parse(localStorage.getItem('savedBusData') || '[]');
                     renderActiveTable(localData);
                 });
@@ -1522,16 +1662,19 @@
                 .then(serverData => {
                     if (serverData && serverData.vehicles && serverData.vehicles.length > 0) {
                         console.log('📊 Używam danych z serwera:', serverData.vehicles.length);
+                        hideApiWarning();
                         renderInactiveTable(serverData.vehicles);
                     } else {
                         // Fallback do localStorage
                         console.log('📁 Używam danych z localStorage');
+                        showApiWarning();
                         const localData = JSON.parse(localStorage.getItem('savedBusData') || '[]');
                         renderInactiveTable(localData);
                     }
                 })
                 .catch(error => {
                     console.log('❌ Błąd pobierania z serwera, używam localStorage:', error);
+                    showApiWarning();
                     const localData = JSON.parse(localStorage.getItem('savedBusData') || '[]');
                     renderInactiveTable(localData);
                 });
