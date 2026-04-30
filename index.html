@@ -1,0 +1,1564 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kursy pojazdów w Gdańsku</title>
+    <style>
+        :root {
+            --primary: #0d6efd;
+            --secondary: #6c757d;
+            --bg-dark: #212529;
+            --bg-light: #f8f9fa;
+            --gait: #28a745;
+            --relobus: #007bff;
+            --pks: #ffc107;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            background-color: #eef2f5;
+            color: #333;
+        }
+
+        header {
+            background: linear-gradient(135deg, #0d6efd, #055160);
+            color: white;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo h1 {
+            margin: 0;
+            font-size: 28px;
+            letter-spacing: 1px;
+        }
+
+        .clock {
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .date-bar {
+            background: var(--bg-light);
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .date-arrow {
+            background: none;
+            border: 1px solid #ced4da;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--secondary);
+            transition: all 0.2s;
+        }
+
+        .date-arrow:hover {
+            background-color: var(--bg-light);
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .date-slots {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .date-slot {
+            text-align: center;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            min-width: 110px;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .date-slot.past {
+            color: var(--secondary);
+            border: 1px solid #eee;
+        }
+
+        .date-slot.active {
+            font-weight: bold;
+            color: var(--primary);
+            border-bottom: 3px solid var(--primary);
+            border-radius: 6px 6px 0 0;
+            background: rgba(13, 110, 253, 0.05);
+        }
+
+        .date-slot.future {
+            color: var(--secondary);
+            border: 1px solid #eee;
+        }
+
+        .date-slot span.day {
+            display: block;
+            font-size: 14px;
+        }
+
+        .date-slot span.date {
+            display: block;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .calendar-input-container {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .calendar-input {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .legend-box {
+            display: flex;
+            gap: 10px;
+            font-size: 11px;
+            color: var(--secondary);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .status-badge {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .status-green { background-color: #28a745; }
+        .status-red { background-color: #dc3545; }
+        .status-gray { background-color: #6c757d; }
+
+        .controls-wrapper {
+            background: var(--bg-light);
+            padding: 15px 20px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .agency-filters {
+            display: flex;
+            gap: 8px;
+        }
+
+        .agency-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+            opacity: 0.4;
+            transition: all 0.2s;
+        }
+
+        .agency-btn:hover, .agency-btn.active {
+            opacity: 1;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+        }
+
+        .agency-btn.gait { background-color: var(--gait); }
+        .agency-btn.relobus { background-color: var(--relobus); }
+        .agency-btn.pks { background-color: var(--pks); }
+
+        .additional-filters {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .nav-tabs {
+            display: flex;
+            background-color: var(--bg-dark);
+            padding: 10px 20px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            color: #bbb;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-radius: 4px;
+        }
+
+        .tab-btn:hover, .tab-btn.active {
+            color: white;
+        }
+
+        .tab-btn.active {
+            background-color: var(--primary);
+            font-weight: 600;
+        }
+
+        .content-section {
+            padding: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background-color: #f1f3f5;
+            color: #495057;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background-color: rgba(0,0,0,0.02);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--secondary);
+        }
+
+        .last-update {
+            font-size: 12px;
+            color: #777;
+        }
+
+        .line-brigade {
+            font-size: 12px;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <h1>Kursy pojazdów w Gdańsku</h1>
+        </div>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <button class="tab-btn" style="background-color:#dc3545; color:white; padding: 6px 12px; border-radius:4px; font-size: 12px;" onclick="toggleAdminPanel()">⚙️ Admin</button>
+            <div class="clock" id="clock">00:00:00</div>
+        </div>
+    </header>
+
+    <!-- Admin Panel -->
+    <div id="admin-panel" style="display: none; background: #f8f9fa; border-bottom: 2px solid #dc3545; padding: 15px;">
+        <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+            <h3 style="margin: 0; color: #dc3545;">⚙️ Panel Administratora</h3>
+            
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <label style="font-weight: 600;">Dodaj pojazd:</label>
+                <input type="text" id="admin-vehicle-id" placeholder="Numer pojazdu" style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; width: 100px;">
+                <select id="admin-agency" style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="GAIT">GAIT</option>
+                    <option value="ReloBus">ReloBus</option>
+                    <option value="PKS Gdańsk">PKS Gdańsk</option>
+                </select>
+                <input type="text" id="admin-model" placeholder="Model" style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; width: 150px;">
+                <button onclick="addAdminVehicle()" style="padding: 4px 8px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Dodaj</button>
+                <button onclick="addRandomVehicle()" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer;">🎲 Losowy</button>
+            </div>
+            
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <label style="font-weight: 600;">Dodaj kurs:</label>
+                <input type="text" id="admin-vehicle-course" placeholder="Numer pojazdu" style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; width: 100px;">
+                <input type="text" id="admin-line" placeholder="Linia" style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; width: 60px;">
+                <input type="text" id="admin-brigade" placeholder="Brygada" style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; width: 80px;">
+                <input type="datetime-local" id="admin-time" style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <button onclick="addAdminCourse()" style="padding: 4px 8px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Dodaj kurs</button>
+            </div>
+            
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <label style="font-weight: 600;">Data:</label>
+                <input type="date" id="admin-date" style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <button onclick="setAdminDate()" style="padding: 4px 8px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Ustaw</button>
+                <button onclick="clearAllData()" style="padding: 4px 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Usuń wszystkie dane</button>
+                <button onclick="deleteOldEntries()" style="padding: 4px 8px; background: #ffc107; color: #212529; border: none; border-radius: 4px; cursor: pointer;">Usuń stare dane</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="date-bar">
+            <button class="date-arrow" onclick="changeDate(-1)">&#9664;</button>
+            
+            <div class="date-slots">
+                <div class="date-slot past" onclick="setDate(getRelativeDate(-1))">
+                    <span class="day" id="past-day">Wczoraj</span>
+                    <span class="date" id="past-date">--</span>
+                </div>
+                
+                <div class="date-slot active" onclick="setDate(getRelativeDate(0))">
+                    <span class="day" id="current-day">Dzisiaj</span>
+                    <span class="date" id="current-date">--</span>
+                </div>
+                
+                <div class="date-slot future" onclick="setDate(getRelativeDate(1))">
+                    <span class="day" id="future-day">Jutro</span>
+                    <span class="date" id="future-date">--</span>
+                </div>
+            </div>
+
+            <div class="calendar-input-container">
+                <label for="calendar" style="font-size: 12px; font-weight: 600;">Wybierz datę</label>
+                <input type="date" id="calendar" class="calendar-input" onchange="onCalendarChange(this.value)">
+            </div>
+
+            <div class="legend-box">
+                <div class="legend-item">
+                    <span class="status-badge status-green"></span> Są dane
+                </div>
+                <div class="legend-item">
+                    <span class="status-badge status-red"></span> Brak danych
+                </div>
+                <div class="legend-item">
+                    <span class="status-badge status-gray"></span> Brak rej.
+                </div>
+            </div>
+
+            <div>
+                <button class="tab-btn" style="background-color:#198754; color:white; padding: 8px 16px; border-radius:4px;" onclick="fetchZtmData()">Odśwież z API</button>
+                <button class="tab-btn" style="background-color:#6c757d; color:white; padding: 8px 16px; border-radius:4px; margin-left: 10px;" onclick="viewSavedData()">📊 Zobacz dane</button>
+                <button class="tab-btn" style="background-color:#17a2b8; color:white; padding: 8px 16px; border-radius:4px; margin-left: 10px;" onclick="loadTodayData()">📂 Wczytaj dane</button>
+            </div>
+        </div>
+
+        <div class="controls-wrapper">
+            <div class="agency-filters">
+                <label style="font-weight: 600; margin-right: 5px; align-self: center;">Przewoźnicy:</label>
+                <button class="agency-btn gait active" onclick="toggleAgency('GAIT')">GAIT</button>
+                <button class="agency-btn relobus active" onclick="toggleAgency('ReloBus')">ReloBus</button>
+                <button class="agency-btn pks active" onclick="toggleAgency('PKS Gdańsk')">PKS Gdańsk</button>
+            </div>
+            <div class="additional-filters">
+                <label style="font-weight: 600; margin-right: 5px; align-self: center;">Typ:</label>
+                <select id="vehicle-type-filter" onchange="applyFilters()" style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="">Wszystkie</option>
+                    <option value="Autobus">🚌 Autobus</option>
+                    <option value="Tramwaj">🚋 Tramwaj</option>
+                    <option value="Trolejbus">🚎 Trolejbus</option>
+                </select>
+                
+                <label style="font-weight: 600; margin-right: 5px; margin-left: 15px; align-self: center;">Linia:</label>
+                <input type="text" id="line-filter" placeholder="np. 6, 130, T8" onchange="applyFilters()" style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; width: 120px;">
+                
+                <label style="font-weight: 600; margin-right: 5px; margin-left: 15px; align-self: center;">Sortuj:</label>
+                <select id="sort-filter" onchange="applyFilters()" style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="number">Numer pojazdu</option>
+                    <option value="line">Linia</option>
+                    <option value="delay">Opóźnienie</option>
+                </select>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 5px;">
+                <span class="last-update" id="last-update">Brak pobranych danych</span>
+                <span class="server-status" id="server-status" style="font-size: 11px; color: #666;">📁 Lokalny storage (symulacja serwera)</span>
+            </div>
+        </div>
+
+        <div class="nav-tabs">
+            <button class="tab-btn active" id="tab-active" onclick="switchTab('active-vehicles', event)">Aktualne pojazdy</button>
+            <button class="tab-btn" id="tab-inactive" onclick="switchTab('inactive-vehicles', event)">Najdłużej nieaktywne pojazdy</button>
+        </div>
+
+        <div id="active-vehicles" class="content-section">
+            <h2>Aktualne kursy – PKM / ZTM</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th onclick="sortActiveVehicles('id')" style="cursor: pointer; user-select: none;">
+                            Numer pojazdu <span id="sort-active-id-arrow">↕</span>
+                        </th>
+                        <th onclick="sortActiveVehicles('agency')" style="cursor: pointer; user-select: none;">
+                            Model / Przewoźnik <span id="sort-active-agency-arrow">↕</span>
+                        </th>
+                        <th onclick="sortActiveVehicles('line')" style="cursor: pointer; user-select: none;">
+                            Linie / Brygady <span id="sort-active-line-arrow">↕</span>
+                        </th>
+                        <th onclick="sortActiveVehicles('timestamp')" style="cursor: pointer; user-select: none;">
+                            Data kursu <span id="sort-active-timestamp-arrow">↕</span>
+                        </th>
+                        <th onclick="sortActiveVehicles('routeTime')" style="cursor: pointer; user-select: none;">
+                            Godziny kursowania <span id="sort-active-routeTime-arrow">↕</span>
+                        </th>
+                        <th onclick="sortActiveVehicles('type')" style="cursor: pointer; user-select: none;">
+                            Typ <span id="sort-active-type-arrow">↕</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="active-table-body">
+                    <tr>
+                        <td colspan="6" class="empty-state">Ładowanie danych...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="inactive-vehicles" class="content-section" style="display: none;">
+            <h2>Najdłużej nieaktywne pojazdy</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th onclick="sortInactiveVehicles('id')" style="cursor: pointer; user-select: none;">
+                            Numer pojazdu <span id="sort-id-arrow">↕</span>
+                        </th>
+                        <th onclick="sortInactiveVehicles('agency')" style="cursor: pointer; user-select: none;">
+                            Przewoźnik <span id="sort-agency-arrow">↕</span>
+                        </th>
+                        <th onclick="sortInactiveVehicles('timestamp')" style="cursor: pointer; user-select: none;">
+                            Ostatnia aktywność <span id="sort-timestamp-arrow">↕</span>
+                        </th>
+                        <th onclick="sortInactiveVehicles('daysAgo')" style="cursor: pointer; user-select: none;">
+                            Czas temu <span id="sort-daysAgo-arrow">↕</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="inactive-table-body">
+                    <tr>
+                        <td colspan="4" class="empty-state">Brak danych historycznych.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let activeAgencies = ['GAIT', 'ReloBus', 'PKS Gdańsk'];
+        let selectedDate = new Date('2026-04-30');
+        let vehicleRoutes = {}; // Przechowuj linie i brygady dla każdego pojazdu
+        let autoRefreshInterval; // Przechowuj interwał auto-odświeżania
+        let dataCollectionInterval; // Przechowuj interwał zbierania danych
+        let inactiveSortField = 'timestamp'; // Pole sortowania dla nieaktywnych
+        let inactiveSortOrder = 'desc'; // Kierunek sortowania dla nieaktywnych
+        let activeSortField = 'timestamp'; // Pole sortowania dla aktywnych
+        let activeSortOrder = 'desc'; // Kierunek sortowania dla aktywnych
+
+        setInterval(() => {
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString();
+        }, 1000);
+
+        document.addEventListener("DOMContentLoaded", () => {
+            updateDateBar(selectedDate);
+            updateTitle();
+            document.getElementById('calendar').value = selectedDate.toISOString().split('T')[0];
+            // Auto odświeżanie po załadowaniu strony
+            fetchZtmData();
+        });
+
+        function updateDateBar(baseDate) {
+            const past = new Date(baseDate);
+            past.setDate(past.getDate() - 1);
+            
+            const future = new Date(baseDate);
+            future.setDate(future.getDate() + 1);
+
+            document.getElementById('past-date').innerText = past.toISOString().split('T')[0];
+            document.getElementById('current-date').innerText = baseDate.toISOString().split('T')[0];
+            document.getElementById('future-date').innerText = future.toISOString().split('T')[0];
+
+            document.getElementById('past-day').innerText = getDayName(past);
+            document.getElementById('current-day').innerText = getDayName(baseDate);
+            document.getElementById('future-day').innerText = getDayName(future);
+
+            document.getElementById('calendar').value = baseDate.toISOString().split('T')[0];
+        }
+
+        function getDayName(dateObj) {
+            const days = ['Niedziela', 'Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota'];
+            return days[dateObj.getDay()];
+        }
+
+        function sortActiveVehicles(field) {
+            // Zmień pole sortowania jeśli to to samo pole
+            if (activeSortField === field) {
+                activeSortOrder = activeSortOrder === 'asc' ? 'desc' : 'asc';
+            } else {
+                activeSortField = field;
+                activeSortOrder = 'desc'; // Domyślnie malejąco
+            }
+            
+            // Zaktualizuj strzałki
+            updateActiveSortArrows();
+            
+            // Renderuj ponownie z nowym sortowaniem
+            renderActiveVehicles();
+        }
+
+        function updateActiveSortArrows() {
+            // Resetuj wszystkie strzałki
+            document.getElementById('sort-active-id-arrow').textContent = '↕';
+            document.getElementById('sort-active-agency-arrow').textContent = '↕';
+            document.getElementById('sort-active-line-arrow').textContent = '↕';
+            document.getElementById('sort-active-timestamp-arrow').textContent = '↕';
+            document.getElementById('sort-active-routeTime-arrow').textContent = '↕';
+            document.getElementById('sort-active-type-arrow').textContent = '↕';
+            
+            // Ustaw strzałkę dla aktywnego pola
+            const activeArrow = document.getElementById(`sort-active-${activeSortField}-arrow`);
+            if (activeArrow) {
+                activeArrow.textContent = activeSortOrder === 'asc' ? '↑' : '↓';
+            }
+        }
+
+        function loadTodayData() {
+            // Ustaw datę na dzisiaj
+            selectedDate = new Date();
+            updateDateBar(selectedDate);
+            updateTitle();
+            
+            // Wczytaj dane z dzisiaj
+            const today = selectedDate.toISOString().split('T')[0];
+            const data = JSON.parse(localStorage.getItem('savedBusData') || '[]');
+            
+            // Filtruj tylko dane z dzisiaj
+            const todayData = data.filter(item => {
+                const itemDate = new Date(item.timestamp);
+                const todayStart = new Date(today);
+                todayStart.setHours(0, 0, 0, 0);
+                const todayEnd = new Date(today);
+                todayEnd.setHours(23, 59, 59, 999);
+                return itemDate >= todayStart && itemDate <= todayEnd;
+            });
+            
+            console.log('📂 Wczytano dane z dnia', today, ':', todayData.length, 'wpisów');
+            
+            // Zapisz tylko dane z dzisiaj
+            localStorage.setItem('savedBusData', JSON.stringify(todayData));
+            
+            renderActiveVehicles();
+            
+            // Zaktualizuj status
+            const serverStatus = document.getElementById('server-status');
+            if (serverStatus) {
+                serverStatus.innerText = `📂 Wczytano ${todayData.length} wpisów z dnia ${today}`;
+                serverStatus.style.color = '#17a2b8';
+                
+                setTimeout(() => {
+                    serverStatus.innerText = '📁 Lokalny storage (symulacja serwera)';
+                    serverStatus.style.color = '#666';
+                }, 3000);
+            }
+        }
+
+        function sortInactiveVehicles(field) {
+            // Zmień pole sortowania jeśli to to samo pole
+            if (inactiveSortField === field) {
+                inactiveSortOrder = inactiveSortOrder === 'asc' ? 'desc' : 'asc';
+            } else {
+                inactiveSortField = field;
+                inactiveSortOrder = 'desc'; // Domyślnie malejąco
+            }
+            
+            // Zaktualizuj strzałki
+            updateSortArrows();
+            
+            // Renderuj ponownie z nowym sortowaniem
+            renderInactiveVehicles();
+        }
+
+        function updateSortArrows() {
+            // Resetuj wszystkie strzałki
+            document.getElementById('sort-id-arrow').textContent = '↕';
+            document.getElementById('sort-agency-arrow').textContent = '↕';
+            document.getElementById('sort-timestamp-arrow').textContent = '↕';
+            document.getElementById('sort-daysAgo-arrow').textContent = '↕';
+            
+            // Ustaw strzałkę dla aktywnego pola
+            const activeArrow = document.getElementById(`sort-${inactiveSortField}-arrow`);
+            if (activeArrow) {
+                activeArrow.textContent = inactiveSortOrder === 'asc' ? '↑' : '↓';
+            }
+        }
+
+        function toggleAdminPanel() {
+            const panel = document.getElementById('admin-panel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function addRandomVehicle() {
+            const agencies = ['GAIT', 'ReloBus', 'PKS Gdańsk'];
+            const models = {
+                'GAIT': ['MAN NL313 Lion\'s City CNG', 'MAN NL263 Lion\'s City', 'Solaris Urbino 12', 'Solaris Urbino 18', 'Mercedes Citaro', 'Mercedes CapaCity'],
+                'ReloBus': ['MAN NL313 Lion\'s City', 'MAN NL263 Lion\'s City', 'Solaris Urbino 12', 'Scania OmniCity'],
+                'PKS Gdańsk': ['MAN NL313 Lion\'s City', 'MAN NL263 Lion\'s City', 'Solaris Urbino 12', 'Scania OmniCity', 'Volvo B7L']
+            };
+            
+            const randomAgency = agencies[Math.floor(Math.random() * agencies.length)];
+            const agencyModels = models[randomAgency];
+            const randomModel = agencyModels[Math.floor(Math.random() * agencyModels.length)];
+            
+            // Generuj losowy numer pojazdu zależny od przewoźnika
+            let randomId;
+            if (randomAgency === 'GAIT') {
+                randomId = Math.floor(Math.random() * 2000) + 1000; // 1000-2999
+            } else if (randomAgency === 'ReloBus') {
+                randomId = Math.floor(Math.random() * 1000) + 8000; // 8000-8999
+            } else {
+                randomId = Math.floor(Math.random() * 2000) + 9000; // 9000-10999
+            }
+            
+            const data = JSON.parse(localStorage.getItem('savedBusData') || '[]');
+            
+            // Sprawdź czy pojazd już istnieje
+            const existingVehicle = data.find(v => v.id === randomId.toString());
+            
+            if (existingVehicle) {
+                // Aktualizuj istniejący pojazd
+                existingVehicle.agency = randomAgency;
+                existingVehicle.model = randomModel;
+                existingVehicle.isActive = true;
+                existingVehicle.timestamp = new Date().toISOString();
+            } else {
+                // Dodaj nowy pojazd
+                data.push({
+                    id: randomId.toString(),
+                    agency: randomAgency,
+                    model: randomModel,
+                    brigade: '---',
+                    timestamp: new Date().toISOString(),
+                    isActive: true,
+                    line: '',
+                    type: 'Autobus',
+                    routeTime: '---',
+                    speed: 0,
+                    delay: 0,
+                    courseType: 'random' // Oznaczenie że dodane losowo
+                });
+            }
+            
+            localStorage.setItem('savedBusData', JSON.stringify(data));
+            renderActiveVehicles();
+            
+            // Zaktualizuj pola formularza
+            document.getElementById('admin-vehicle-id').value = randomId;
+            document.getElementById('admin-agency').value = randomAgency;
+            document.getElementById('admin-model').value = randomModel;
+            
+            console.log('🎲 Dodano losowy pojazd:', randomId, randomAgency, randomModel);
+            console.log('📊 Łącznie wpisów:', data.length);
+            
+            // Zaktualizuj status
+            const serverStatus = document.getElementById('server-status');
+            if (serverStatus) {
+                serverStatus.innerText = `🎲 Dodano losowy pojazd: ${randomId} (${randomAgency})`;
+                serverStatus.style.color = '#17a2b8';
+                
+                setTimeout(() => {
+                    serverStatus.innerText = '📁 Lokalny storage (symulacja serwera)';
+                    serverStatus.style.color = '#666';
+                }, 3000);
+            }
+        }
+
+        function addAdminVehicle() {
+            const vehicleId = document.getElementById('admin-vehicle-id').value.trim();
+            const agency = document.getElementById('admin-agency').value;
+            const model = document.getElementById('admin-model').value.trim();
+            
+            if (!vehicleId) {
+                alert('Podaj numer pojazdu!');
+                return;
+            }
+            
+            const data = JSON.parse(localStorage.getItem('savedBusData') || '[]');
+            
+            // Sprawdź czy pojazd już istnieje
+            const existingVehicle = data.find(v => v.id === vehicleId);
+            
+            if (existingVehicle) {
+                // Aktualizuj istniejący pojazd
+                existingVehicle.agency = agency;
+                existingVehicle.model = model || existingVehicle.model;
+                existingVehicle.isActive = true;
+                existingVehicle.timestamp = new Date().toISOString();
+            } else {
+                // Dodaj nowy pojazd
+                data.push({
+                    id: vehicleId,
+                    agency: agency,
+                    model: model || 'Nieznany',
+                    brigade: '---',
+                    timestamp: new Date().toISOString(),
+                    isActive: true,
+                    line: '',
+                    type: 'Autobus',
+                    routeTime: '---',
+                    speed: 0,
+                    delay: 0
+                });
+            }
+            
+            localStorage.setItem('savedBusData', JSON.stringify(data));
+            renderActiveVehicles();
+            
+            // Wyczyść pola
+            document.getElementById('admin-vehicle-id').value = '';
+            document.getElementById('admin-model').value = '';
+            
+            console.log('✅ Dodano/zaktualizowano pojazd:', vehicleId);
+        }
+
+        function addAdminCourse() {
+            const vehicleId = document.getElementById('admin-vehicle-course').value.trim();
+            const line = document.getElementById('admin-line').value.trim();
+            const brigade = document.getElementById('admin-brigade').value.trim();
+            const timeInput = document.getElementById('admin-time').value;
+            
+            if (!vehicleId || !line || !brigade) {
+                alert('Podaj numer pojazdu, linię i brygadę!');
+                return;
+            }
+            
+            const data = JSON.parse(localStorage.getItem('savedBusData') || '[]');
+            
+            // Sprawdź czy pojazd istnieje w bazie pojazdów
+            const existingVehicle = data.find(v => v.id === vehicleId);
+            let baseVehicle = existingVehicle;
+            
+            if (!baseVehicle) {
+                alert('Pojazd o numerze ' + vehicleId + ' nie istnieje! Dodaj najpierw pojazd.');
+                return;
+            }
+            
+            // Twórz NOWY wpis kursu (nie aktualizuj istniejącego)
+            const newCourseEntry = {
+                id: vehicleId.toString(),
+                agency: baseVehicle.agency,
+                model: baseVehicle.model,
+                brigade: brigade,
+                timestamp: timeInput ? new Date(timeInput).toISOString() : new Date().toISOString(),
+                isActive: true,
+                line: line,
+                type: baseVehicle.type || 'Autobus',
+                routeTime: '---',
+                speed: 0,
+                delay: 0,
+                courseType: 'manual' // Oznaczenie że dodane ręcznie
+            };
+            
+            // Oblicz godziny kursowania
+            if (timeInput) {
+                const startTime = new Date(timeInput);
+                const currentTime = new Date();
+                const startHour = startTime.getHours().toString().padStart(2, '0');
+                const startMin = startTime.getMinutes().toString().padStart(2, '0');
+                const currentHour = currentTime.getHours().toString().padStart(2, '0');
+                const currentMin = currentTime.getMinutes().toString().padStart(2, '0');
+                newCourseEntry.routeTime = `${startHour}:${startMin} - ${currentHour}:${currentMin}`;
+            }
+            
+            // Dodaj NOWY wpis do danych (nie nadpisuj)
+            data.push(newCourseEntry);
+            
+            // Zapisz do localStorage
+            localStorage.setItem('savedBusData', JSON.stringify(data));
+            
+            // Zapisz do pliku (symulacja)
+            saveDataToFile(newCourseEntry);
+            
+            // Dodaj do tras pojazdu
+            if (!vehicleRoutes[vehicleId]) {
+                vehicleRoutes[vehicleId] = [];
+            }
+            
+            const routeInfo = {
+                line: line,
+                brigade: brigade,
+                timestamp: newCourseEntry.timestamp
+            };
+            
+            // Sprawdź czy ta trasa już istnieje
+            const existingRoute = vehicleRoutes[vehicleId].find(r => 
+                r.line === routeInfo.line && r.brigade === routeInfo.brigade
+            );
+            
+            if (!existingRoute) {
+                vehicleRoutes[vehicleId].push(routeInfo);
+            }
+            
+            renderActiveVehicles();
+            
+            // Wyczyść pola
+            document.getElementById('admin-vehicle-course').value = '';
+            document.getElementById('admin-line').value = '';
+            document.getElementById('admin-brigade').value = '';
+            document.getElementById('admin-time').value = '';
+            
+            console.log('✅ Dodano NOWY kurs dla pojazdu:', vehicleId, 'linia:', line, 'brygada:', brigade);
+            console.log('📊 Łącznie wpisów:', data.length);
+            console.log('💾 Zapisano do pliku');
+        }
+
+        function saveDataToFile(data) {
+            // Symulacja zapisu do pliku
+            const fileContent = JSON.stringify(data, null, 2);
+            const blob = new Blob([fileContent], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            // Tworzy link do pobrania pliku
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `kurs_pojazdu_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            console.log('💾 Zapisano dane do pliku:', a.download);
+        }
+
+        function setAdminDate() {
+            const dateInput = document.getElementById('admin-date').value;
+            if (dateInput) {
+                selectedDate = new Date(dateInput);
+                updateDateBar(selectedDate);
+                updateTitle();
+                renderActiveVehicles();
+                console.log('📅 Ustawiono datę:', selectedDate.toLocaleDateString('pl-PL'));
+            }
+        }
+
+        function deleteOldEntries() {
+            if (confirm('Czy na pewno chcesz usunąć stare dane (starsze niż 7 dni)?')) {
+                const data = JSON.parse(localStorage.getItem('savedBusData') || '[]');
+                const now = new Date();
+                const sevenDaysAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+                
+                const oldCount = data.length;
+                const filteredData = data.filter(item => {
+                    const itemDate = new Date(item.timestamp);
+                    return itemDate >= sevenDaysAgo;
+                });
+                
+                localStorage.setItem('savedBusData', JSON.stringify(filteredData));
+                renderActiveVehicles();
+                renderInactiveVehicles();
+                
+                console.log('🗑️ Usunięto', oldCount - filteredData.length, 'starych wpisów');
+                console.log('📊 Pozostało', filteredData.length, 'wpisów');
+                
+                // Zaktualizuj status
+                const serverStatus = document.getElementById('server-status');
+                if (serverStatus) {
+                    serverStatus.innerText = `🗑️ Usunięto ${oldCount - filteredData.length} starych wpisów`;
+                    serverStatus.style.color = '#ffc107';
+                    
+                    setTimeout(() => {
+                        serverStatus.innerText = '📁 Lokalny storage (symulacja serwera)';
+                        serverStatus.style.color = '#666';
+                    }, 3000);
+                }
+            }
+        }
+
+        function clearAllData() {
+            if (confirm('Czy na pewno chcesz wyczyścić wszystkie dane?')) {
+                localStorage.removeItem('savedBusData');
+                localStorage.removeItem('serverData');
+                vehicleRoutes = {};
+                renderActiveVehicles();
+                renderInactiveVehicles();
+                console.log('🗑️ Wyczyszczono wszystkie dane');
+            }
+        }
+
+        function viewSavedData() {
+            // Pobierz zapisane dane
+            const savedData = JSON.parse(localStorage.getItem('savedBusData') || '[]');
+            const serverData = JSON.parse(localStorage.getItem('serverData') || '{}');
+            
+            console.log('📊 Przeglądanie zapisanych danych:');
+            console.log('Pojazdy:', savedData.length);
+            console.log('Trasy:', vehicleRoutes);
+            console.log('Dane serwera:', serverData);
+            
+            // Stwórz okno modal do wyświetlenia danych
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.8);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+            `;
+            
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background: white;
+                padding: 30px;
+                border-radius: 10px;
+                max-width: 800px;
+                max-height: 80vh;
+                overflow-y: auto;
+                position: relative;
+            `;
+            
+            content.innerHTML = `
+                <h2 style="margin-top: 0; color: #333;">📊 Zapisane dane</h2>
+                <div style="display: grid; gap: 20px;">
+                    <div>
+                        <h3>📊 Podsumowanie</h3>
+                        <p><strong>Łącznie pojazdów:</strong> ${savedData.length}</p>
+                        <p><strong>Data ostatnie zapisu:</strong> ${serverData.timestamp ? new Date(serverData.timestamp).toLocaleString('pl-PL') : 'Brak'}</p>
+                        <p><strong>Wybrana data:</strong> ${serverData.selectedDate ? new Date(serverData.selectedDate).toLocaleDateString('pl-PL') : 'Brak'}</p>
+                    </div>
+                    <div>
+                        <h3>🚊 Aktywne pojazdy (${savedData.filter(v => v.isActive).length})</h3>
+                        <div style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px;">
+                            ${savedData.filter(v => v.isActive).slice(0, 10).map(v => `
+                                <div style="padding: 5px 0; border-bottom: 1px solid #eee;">
+                                    <strong>${v.id}</strong> - ${v.agency} - ${v.line || '---'} - ${v.model}
+                                </div>
+                            `).join('')}
+                            ${savedData.filter(v => v.isActive).length > 10 ? `<div style="text-align: center; color: #666;">... i ${savedData.filter(v => v.isActive).length - 10} więcej</div>` : ''}
+                        </div>
+                    </div>
+                    <div>
+                        <h3>🗃️ Trasy pojazdów</h3>
+                        <div style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px;">
+                            ${Object.entries(vehicleRoutes).slice(0, 10).map(([vehicleId, routes]) => `
+                                <div style="padding: 5px 0; border-bottom: 1px solid #eee;">
+                                    <strong>Pojazd ${vehicleId}:</strong><br>
+                                    ${routes.map(r => `• ${r.line} (${r.brigade})`).join('<br>')}
+                                </div>
+                            `).join('')}
+                            ${Object.keys(vehicleRoutes).length > 10 ? `<div style="text-align: center; color: #666;">... i ${Object.keys(vehicleRoutes).length - 10} więcej pojazdów</div>` : ''}
+                        </div>
+                    </div>
+                </div>
+                <button onclick="this.parentElement.parentElement.remove()" style="margin-top: 20px; padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer;">Zamknij</button>
+            `;
+            
+            modal.appendChild(content);
+            document.body.appendChild(modal);
+            
+            // Zamknij przy kliknięciu tła
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            });
+        }
+
+        function startDataCollection() {
+            // Zbieraj dane co 2 minuty (120000 ms)
+            dataCollectionInterval = setInterval(() => {
+                fetchZtmData();
+            }, 120000);
+        }
+
+        function stopDataCollection() {
+            if (dataCollectionInterval) {
+                clearInterval(dataCollectionInterval);
+                dataCollectionInterval = null;
+            }
+        }
+
+        function saveDataToServer() {
+            // Zapisz dane do localStorage (symulacja zapisu na serwer)
+            const data = {
+                timestamp: new Date().toISOString(),
+                vehicles: JSON.parse(localStorage.getItem('savedBusData') || '[]'),
+                vehicleRoutes: vehicleRoutes,
+                selectedDate: selectedDate.toISOString()
+            };
+            
+            // Zapisz w localStorage jako backup
+            localStorage.setItem('serverData', JSON.stringify(data));
+            
+            // Aktualizuj status serwera
+            const serverStatus = document.getElementById('server-status');
+            if (serverStatus) {
+                serverStatus.innerText = `📁 Zapisano ${data.vehicles.length} pojazdów (${new Date().toLocaleTimeString()})`;
+                serverStatus.style.color = '#28a745';
+                
+                // Po 3 sekundach wróć do normalnego statusu
+                setTimeout(() => {
+                    serverStatus.innerText = '📁 Lokalny storage (symulacja serwera)';
+                    serverStatus.style.color = '#666';
+                }, 3000);
+            }
+            
+            // Wyświetl informacje o zapisie
+            console.log('📁 Dane zapisane w localStorage (symulacja serwera):', new Date().toLocaleTimeString());
+            console.log('📊 Zapisane pojazdy:', data.vehicles.length);
+            console.log('🔗 URL serwera: http://localhost:3000');
+            
+            // W prawdziwej aplikacji tutaj byłoby wysyłanie do serwera lokalnego:
+            /*
+            fetch('http://localhost:3000/api/save-vehicle', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                console.log('✅ Dane zapisane na serwerze:', result);
+                // Aktualizuj status na prawdziwy serwer
+                const serverStatus = document.getElementById('server-status');
+                if (serverStatus) {
+                    serverStatus.innerText = `🌐 Serwer: ${result.vehicles} pojazdów (${new Date().toLocaleTimeString()})`;
+                    serverStatus.style.color = '#007bff';
+                }
+            })
+            .catch(error => {
+                console.error('❌ Błąd zapisu na serwerze:', error);
+                // Powrót do lokalnego storage
+                const serverStatus = document.getElementById('server-status');
+                if (serverStatus) {
+                    serverStatus.innerText = '❌ Błąd serwera (lokalny storage)';
+                    serverStatus.style.color = '#dc3545';
+                }
+            });
+            */
+        }
+
+        // Zapisuj dane przy zamknięciu strony
+        window.addEventListener('beforeunload', saveDataToServer);
+        
+        // Zapisuj dane co 2 minuty
+        setInterval(saveDataToServer, 120000);
+
+        function updateTitle() {
+            const formattedDate = selectedDate.toLocaleDateString('pl-PL', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+            document.querySelector('#active-vehicles h2').innerText = `Kursy z dnia ${formattedDate}`;
+            document.title = `Kursy pojazdów w Gdańsku - ${formattedDate}`;
+        }
+
+        function getRelativeDate(days) {
+            const d = new Date(selectedDate);
+            d.setDate(d.getDate() + days);
+            return d;
+        }
+
+        function setDate(dateObj) {
+            selectedDate = dateObj;
+            updateDateBar(selectedDate);
+            updateTitle();
+            renderActiveVehicles();
+        }
+
+        function changeDate(days) {
+            const newDate = new Date(selectedDate);
+            newDate.setDate(newDate.getDate() + days);
+            setDate(newDate);
+        }
+
+        function onCalendarChange(dateString) {
+            setDate(new Date(dateString));
+        }
+
+        function switchTab(tabId, event) {
+            document.querySelectorAll('.content-section').forEach(sec => sec.style.display = 'none');
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            
+            if (tabId === 'active-vehicles') {
+                document.getElementById('active-vehicles').style.display = 'block';
+                document.getElementById('tab-active').classList.add('active');
+                renderActiveVehicles();
+            } else {
+                document.getElementById('inactive-vehicles').style.display = 'block';
+                document.getElementById('tab-inactive').classList.add('active');
+                renderInactiveVehicles();
+            }
+        }
+
+        function toggleAgency(agency) {
+            if (activeAgencies.includes(agency)) {
+                activeAgencies = activeAgencies.filter(a => a !== agency);
+            } else {
+                activeAgencies.push(agency);
+            }
+            
+            const buttons = document.querySelectorAll('.agency-btn');
+            buttons.forEach(btn => {
+                if (btn.innerText.trim() === agency) {
+                    btn.classList.toggle('active');
+                }
+            });
+            applyFilters();
+        }
+
+        function applyFilters() {
+            renderActiveVehicles();
+        }
+
+        async function fetchZtmData() {
+            try {
+                console.log('Rozpoczynam pobieranie danych z API...');
+                
+                // Najpierw pobierz dane z serwera (historia)
+                const serverData = await fetchServerData();
+                
+                // Pobieranie danych z bazy pojazdów
+                console.log('Pobieranie bazy pojazdów...');
+                const vehicleResponse = await fetch('https://files.cloudgdansk.pl/d/otwarte-dane/ztm/baza-pojazdow.json?v=2');
+                console.log('Response vehicle:', vehicleResponse.status, vehicleResponse.statusText);
+                
+                if (!vehicleResponse.ok) throw new Error('Błąd połączenia z bazą pojazdów');
+                
+                const vehicleData = await vehicleResponse.json();
+                console.log('Pobrano pojazdów:', vehicleData?.count || 'brak danych');
+                
+                // Pobieranie aktualnych pozycji GPS
+                console.log('Pobieranie pozycji GPS...');
+                const gpsResponse = await fetch('https://ckan2.multimediagdansk.pl/gpsPositions?v=2');
+                console.log('Response GPS:', gpsResponse.status, gpsResponse.statusText);
+                
+                if (!gpsResponse.ok) throw new Error('Błąd połączenia z pozycjami GPS');
+                
+                const gpsData = await gpsResponse.json();
+                console.log('Pobrano pozycji GPS:', gpsData?.vehicles?.length || 0);
+                
+                // Pobieranie kategorii linii
+                console.log('Pobieranie kategorii linii...');
+                const categoryResponse = await fetch('https://ckan.multimediagdansk.pl/dataset/c24aa637-3619-4dc2-a171-a23eec8f2172/resource/8b5175e6-7621-4149-a9f8-a29696c73d8d/download/kategorie.json');
+                const categoryData = categoryResponse.ok ? await categoryResponse.json() : [];
+                console.log('Pobrano kategorii:', categoryData?.length || 0);
+                
+                console.log('Przetwarzanie danych...');
+                parseDataToStorage(vehicleData, gpsData, categoryData, serverData);
+                console.log('Dane przetworzone pomyślnie');
+                
+            } catch (error) {
+                console.error('Szczegółowy błąd API:', error);
+                alert("Błąd połączenia z API: " + error.message + "\nŁadowanie danych przykładowych.");
+                loadMockData();
+            }
+        }
+
+        async function fetchServerData() {
+            try {
+                // Pobierz dane historyczne z serwera lokalnego
+                console.log('Pobieranie danych historycznych z serwera...');
+                const response = await fetch('http://localhost:3000/api/pojazdy');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Pobrano danych historycznych z serwera:', data?.vehicles?.length || 0);
+                    return data;
+                } else {
+                    console.log('Brak danych historycznych na serwerze, używam tylko świeżych danych');
+                    return null;
+                }
+            } catch (error) {
+                console.log('Błąd pobierania danych z serwera:', error);
+                return null;
+            }
+        }
+
+        function parseDataToStorage(vehicleData, gpsData, categoryData, serverData = null) {
+            console.log('Przetwarzanie danych - pojazdów:', vehicleData?.results?.length || 0, 'GPS:', gpsData?.vehicles?.length || 0, 'Historia:', serverData?.vehicles?.length || 0);
+            
+            let processed = [];
+            const now = new Date();
+            vehicleRoutes = {}; // Resetuj dane o liniach
+            
+            // Zacznij od danych historycznych z serwera (jeśli istnieją)
+            if (serverData && serverData.vehicles) {
+                console.log('Dodawanie danych historycznych z serwera...');
+                processed = [...serverData.vehicles];
+                
+                // Przywróć trasy z danych historycznych
+                if (serverData.vehicleRoutes) {
+                    vehicleRoutes = {...serverData.vehicleRoutes};
+                }
+            }
+            
+            // Najpierw dodaj aktywne pojazdy z GPS - to będą nasze główne dane
+            if (gpsData && Array.isArray(gpsData.vehicles)) {
+                console.log('Dodawanie aktywnych pojazdów z GPS...');
+                gpsData.vehicles.forEach((gps) => {
+                    const vehicleId = gps.vehicleCode || gps.VehicleCode || gps.VehicleID;
+                    if (!vehicleId) return;
+                    
+                    // Określ przewoźnika na podstawie numeru pojazdu
+                    let agency = 'PKS Gdańsk';
+                    if (vehicleId >= 1000 && vehicleId < 3000) {
+                        agency = 'GAIT';
+                    } else if (vehicleId >= 8000 && vehicleId < 9000) {
+                        agency = 'ReloBus';
+                    } else if (vehicleId >= 9000) {
+                        agency = 'PKS Gdańsk';
+                    }
+                    
+                    // Sprawdź czy pojazd jest w bazie, aby pobrać model
+                    let model = "Nieznany";
+                    let type = "Autobus";
+                    
+                    if (vehicleData && Array.isArray(vehicleData.results)) {
+                        const vehicleInfo = vehicleData.results.find(v => 
+                            (v.vehicleCode === vehicleId || v.VehicleCode === vehicleId || v.VehicleID === vehicleId)
+                        );
+                        if (vehicleInfo) {
+                            model = `${vehicleInfo.brand || ''} ${vehicleInfo.model || ''}`.trim() || "Nieznany";
+                            type = vehicleInfo.transportationType || 'Autobus';
+                        }
+                    }
+                    
+                    // Dodaj linię i brygadę do danych pojazdu
+                    if (!vehicleRoutes[vehicleId]) {
+                        vehicleRoutes[vehicleId] = [];
+                    }
+                    
+                    const routeInfo = {
+                        line: gps.routeShortName || '',
+                        brigade: gps.vehicleService || '---',
+                        timestamp: gps.generated || new Date().toISOString()
+                    };
+                    
+                    // Sprawdź czy ta linia już istnieje dla tego pojazdu
+                    const existingRoute = vehicleRoutes[vehicleId].find(r => 
+                        r.line === routeInfo.line && r.brigade === routeInfo.brigade
+                    );
+                    
+                    if (!existingRoute) {
+                        vehicleRoutes[vehicleId].push(routeInfo);
+                    }
+                    
+                    // Oblicz godziny kursowania na podstawie czasu trasy
+                    const startTime = gps.scheduledTripStartTime ? new Date(gps.scheduledTripStartTime) : null;
+                    const currentTime = new Date(gps.generated || now);
+                    let routeTime = '---';
+                    
+                    if (startTime) {
+                        const startHour = startTime.getHours().toString().padStart(2, '0');
+                        const startMin = startTime.getMinutes().toString().padStart(2, '0');
+                        const currentHour = currentTime.getHours().toString().padStart(2, '0');
+                        const currentMin = currentTime.getMinutes().toString().padStart(2, '0');
+                        routeTime = `${startHour}:${startMin} - ${currentHour}:${currentMin}`;
+                    }
+                    
+                    // Twórz NOWY wpis dla każdego aktywnego pojazdu (nie nadpisuj)
+                    const newEntry = {
+                        id: vehicleId.toString(),
+                        agency: agency,
+                        model: model,
+                        brigade: gps.vehicleService || '---',
+                        timestamp: gps.generated || new Date().toISOString(),
+                        isActive: true,
+                        line: gps.routeShortName || '',
+                        type: type,
+                        routeTime: routeTime,
+                        speed: gps.speed || 0,
+                        delay: gps.delay || 0,
+                        courseType: 'gps' // Oznaczenie że z GPS
+                    };
+                    
+                    // Dodaj NOWY wpis do danych (nie nadpisuj istniejących)
+                    processed.push(newEntry);
+                });
+            }
+            
+            console.log('Przetworzono aktywnych pojazdów:', processed.filter(v => v.isActive).length);
+            console.log('Przetworzono nieaktywnych pojazdów:', processed.filter(v => !v.isActive).length);
+            console.log('Przetworzono łącznie wpisów:', processed.length);
+            console.log('Aktywne przewoźnicy:', [...new Set(processed.map(p => p.agency))]);
+            
+            localStorage.setItem('savedBusData', JSON.stringify(processed));
+            updateTitle();
+            renderActiveVehicles();
+            document.getElementById('last-update').innerText = 'Zaktualizowano: ' + new Date().toLocaleTimeString();
+            
+            // Uruchom zbieranie danych po pierwszym pomyślnym pobraniu
+            if (!dataCollectionInterval) {
+                startDataCollection();
+            }
+        }
+
+        function loadMockData() {
+            const mockData = [
+                { id: "2021", model: "MAN NL313 Lion's City CNG", brigade: "137-01", agency: "GAIT", timestamp: "2026-04-30T07:15:00.000Z", line: "6", routeTime: "07:15 - 09:25", type: "Autobus" },
+                { id: "2022", model: "MAN NL313 Lion's City CNG", brigade: "209-06", agency: "ReloBus", timestamp: "2026-04-29T18:15:00.000Z", line: "130", routeTime: "18:15 - 20:30", type: "Autobus" },
+                { id: "2024", model: "MAN NL313 Lion's City", brigade: "192-01", agency: "PKS Gdańsk", timestamp: "2026-04-25T10:39:00.000Z", line: "T8", routeTime: "10:39 - 12:45", type: "Tramwaj" }
+            ];
+            
+            localStorage.setItem('savedBusData', JSON.stringify(mockData));
+            renderActiveVehicles();
+            document.getElementById('last-update').innerText = 'Zaktualizowano (dane testowe)';
+        }
+
+        function renderActiveVehicles() {
+            const data = JSON.parse(localStorage.getItem('savedBusData') || '[]');
+            console.log('Renderuję pojazdy - wszystkich:', data.length, 'aktywne agencje:', activeAgencies);
+            
+            const tbody = document.getElementById('active-table-body');
+            tbody.innerHTML = '';
+
+            // Pobierz wartości filtrów
+            const vehicleTypeFilter = document.getElementById('vehicle-type-filter').value;
+            const lineFilter = document.getElementById('line-filter').value.trim();
+            
+            // Filtruj po przewoźnikach
+            let filteredData = data.filter(item => activeAgencies.includes(item.agency));
+            
+            // Filtruj po typie pojazdu
+            if (vehicleTypeFilter) {
+                filteredData = filteredData.filter(item => {
+                    if (vehicleTypeFilter === 'Autobus') {
+                        return !item.type.toLowerCase().includes('tram') && !item.type.toLowerCase().includes('trolley');
+                    } else if (vehicleTypeFilter === 'Tramwaj') {
+                        return item.type.toLowerCase().includes('tram');
+                    } else if (vehicleTypeFilter === 'Trolejbus') {
+                        return item.type.toLowerCase().includes('trolley');
+                    }
+                    return true;
+                });
+            }
+            
+            // Filtruj po liniach (wiele linii rozdzielonych przecinkami)
+            if (lineFilter) {
+                const lines = lineFilter.split(',').map(line => line.trim().toUpperCase()).filter(line => line);
+                filteredData = filteredData.filter(item => {
+                    if (!item.line) return false;
+                    return lines.some(line => item.line.toUpperCase().includes(line));
+                });
+            }
+            
+            // Filtruj po dacie - tylko pojazdy z wybranego dnia
+            const selectedDateStart = new Date(selectedDate);
+            selectedDateStart.setHours(0, 0, 0, 0);
+            const selectedDateEnd = new Date(selectedDate);
+            selectedDateEnd.setHours(23, 59, 59, 999);
+            
+            filteredData = filteredData.filter(item => {
+                const itemDate = new Date(item.timestamp);
+                return itemDate >= selectedDateStart && itemDate <= selectedDateEnd;
+            });
+            
+            // Sortowanie według wybranego pola i kierunku
+            filteredData.sort((a, b) => {
+                let comparison = 0;
+                
+                switch(activeSortField) {
+                    case 'id':
+                        comparison = parseInt(a.id) - parseInt(b.id);
+                        break;
+                    case 'agency':
+                        comparison = a.agency.localeCompare(b.agency);
+                        break;
+                    case 'line':
+                        const lineA = a.line || '';
+                        const lineB = b.line || '';
+                        // Sortuj najpierw numerycznie, potem alfabetycznie
+                        if (!isNaN(lineA) && !isNaN(lineB)) {
+                            comparison = parseInt(lineA) - parseInt(lineB);
+                        } else {
+                            comparison = lineA.localeCompare(lineB);
+                        }
+                        break;
+                    case 'timestamp':
+                        comparison = new Date(a.timestamp) - new Date(b.timestamp);
+                        break;
+                    case 'routeTime':
+                        comparison = (a.routeTime || '---').localeCompare(b.routeTime || '---');
+                        break;
+                    case 'type':
+                        comparison = (a.type || '').localeCompare(b.type || '');
+                        break;
+                }
+                
+                return activeSortOrder === 'asc' ? comparison : -comparison;
+            });
+            
+            console.log('Po filtrowaniu i sortowaniu:', filteredData.length);
+            
+            if (filteredData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Brak aktywnych pojazdów dla wybranych filtrów i daty ${selectedDate.toLocaleDateString('pl-PL')}.</td></tr>`;
+                return;
+            }
+
+            filteredData.forEach(bus => {
+                const tr = document.createElement('tr');
+                
+                // Ikona pojazdu
+                let vehicleIcon = '🚌';
+                if (bus.type && bus.type.toLowerCase().includes('tram')) {
+                    vehicleIcon = '🚋';
+                } else if (bus.type && bus.type.toLowerCase().includes('trolley')) {
+                    vehicleIcon = '🚎';
+                }
+                
+                // Przygotuj wszystkie linie i brygady dla tego pojazdu
+                const routes = vehicleRoutes[bus.id] || [];
+                let linesAndBrigades = '';
+                
+                if (routes.length > 0) {
+                    // Grupuj po liniach
+                    const groupedRoutes = {};
+                    routes.forEach(route => {
+                        if (!groupedRoutes[route.line]) {
+                            groupedRoutes[route.line] = [];
+                        }
+                        groupedRoutes[route.line].push(route.brigade);
+                    });
+                    
+                    // Stwórz tekst z liniami i brygadami
+                    linesAndBrigades = Object.entries(groupedRoutes)
+                        .map(([line, brigades]) => {
+                            const uniqueBrigades = [...new Set(brigades)];
+                            return `<strong>${line}</strong><br><small>Brygady: ${uniqueBrigades.join(', ')}</small>`;
+                        })
+                        .join('<br><br>');
+                } else {
+                    linesAndBrigades = `<strong>${bus.line || '---'}</strong><br><small>Brygada: ${bus.brigade}</small>`;
+                }
+                
+                // Dodaj informację o opóźnieniu
+                let delayInfo = '';
+                if (bus.delay && bus.delay !== 0) {
+                    const delayMinutes = Math.abs(Math.round(bus.delay / 60));
+                    if (bus.delay > 0) {
+                        delayInfo = `<br><small style="color: #dc3545;">+${delayMinutes} min</small>`;
+                    } else {
+                        delayInfo = `<br><small style="color: #28a745;">-${delayMinutes} min</small>`;
+                    }
+                }
+                
+                // Format daty kursu
+                const dateObj = new Date(bus.timestamp);
+                const formattedDate = dateObj.toLocaleDateString('pl-PL', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                });
+                
+                tr.innerHTML = `
+                    <td><strong>${bus.id}</strong></td>
+                    <td>${bus.model}<br><small style="color:#777;">${bus.agency}</small></td>
+                    <td class="line-brigade">${linesAndBrigades}</td>
+                    <td>${formattedDate}</td>
+                    <td>${bus.routeTime || '---'}</td>
+                    <td><span style="font-size: 20px;">${vehicleIcon}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            // Zaktualizuj strzałki
+            updateActiveSortArrows();
+        }
+
+        function renderInactiveVehicles() {
+            const data = JSON.parse(localStorage.getItem('savedBusData') || '[]');
+            const tbody = document.getElementById('inactive-table-body');
+            tbody.innerHTML = '';
+
+            // Filtruj tylko nieaktywne pojazdy
+            let filteredData = data.filter(item => activeAgencies.includes(item.agency) && !item.isActive);
+            
+            // Dodaj obliczone dni temu do każdego pojazdu
+            filteredData = filteredData.map(bus => {
+                const lastActiveDate = new Date(bus.timestamp);
+                const now = new Date();
+                const daysAgo = Math.floor((now - lastActiveDate) / (1000 * 60 * 60 * 24));
+                return { ...bus, daysAgo };
+            });
+            
+            // Sortowanie według wybranego pola i kierunku
+            filteredData.sort((a, b) => {
+                let comparison = 0;
+                
+                switch(inactiveSortField) {
+                    case 'id':
+                        comparison = parseInt(a.id) - parseInt(b.id);
+                        break;
+                    case 'agency':
+                        comparison = a.agency.localeCompare(b.agency);
+                        break;
+                    case 'timestamp':
+                        comparison = new Date(a.timestamp) - new Date(b.timestamp);
+                        break;
+                    case 'daysAgo':
+                        comparison = a.daysAgo - b.daysAgo;
+                        break;
+                }
+                
+                return inactiveSortOrder === 'asc' ? comparison : -comparison;
+            });
+
+            if (filteredData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="empty-state">Brak nieaktywnych pojazdów dla wybranych przewoźników.</td></tr>`;
+                return;
+            }
+
+            filteredData.forEach(bus => {
+                const tr = document.createElement('tr');
+                const lastActiveDate = new Date(bus.timestamp);
+                
+                // Formatuj czas ostatniej aktywności
+                const formattedDate = lastActiveDate.toLocaleDateString('pl-PL');
+                const formattedTime = lastActiveDate.toLocaleTimeString('pl-PL');
+                
+                tr.innerHTML = `
+                    <td><strong>${bus.id}</strong></td>
+                    <td>${bus.agency}</td>
+                    <td>${formattedDate} ${formattedTime}</td>
+                    <td><span style="color: ${bus.daysAgo === 0 ? '#28a745' : bus.daysAgo <= 3 ? '#ffc107' : '#dc3545'}">
+                        ${bus.daysAgo === 0 ? 'Dziś' : bus.daysAgo === 1 ? 'Wczoraj' : `${bus.daysAgo} dni temu`}
+                    </span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            // Zaktualizuj strzałki
+            updateSortArrows();
+        }
+    </script>
+</body>
+</html>
