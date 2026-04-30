@@ -108,13 +108,17 @@ function processAndMergeData(vehicleDatabase, gpsData, categoryData) {
             let routeTime = '---';
 
             if (startTime) {
-                // Konwertuj startTime na lokalny czas
-                const localStartTime = new Date(startTime.getTime() + (startTime.getTimezoneOffset() * 60000));
+                // Pobierz czas GPS jako UTC i konwertuj na lokalny
+                const gpsTime = new Date(gps.generated || new Date().toISOString());
+                const localCurrentTime = new Date(gpsTime.getTime() - (gpsTime.getTimezoneOffset() * 60000));
+                
+                // Konwertuj startTime na lokalny czas (GPS czas jest w UTC)
+                const localStartTime = new Date(startTime.getTime() - (startTime.getTimezoneOffset() * 60000));
                 
                 const startHour = localStartTime.getHours().toString().padStart(2, '0');
                 const startMin = localStartTime.getMinutes().toString().padStart(2, '0');
-                const currentHour = currentTime.getHours().toString().padStart(2, '0');
-                const currentMin = currentTime.getMinutes().toString().padStart(2, '0');
+                const currentHour = localCurrentTime.getHours().toString().padStart(2, '0');
+                const currentMin = localCurrentTime.getMinutes().toString().padStart(2, '0');
                 routeTime = `${startHour}:${startMin} - ${currentHour}:${currentMin}`;
             }
 
@@ -339,7 +343,7 @@ function createDailyBackup(date, filePath) {
         cleanupOldBackups();
         
     } catch (error) {
-        console.error('❌ Błąd tworzenia zrzutu dziennego:', error.message);
+        console.error(' Błąd tworzenia zrzutu dziennego:', error.message);
     }
 }
 
@@ -372,10 +376,11 @@ function generateDailyStatistics(vehicles) {
         const type = vehicle.type || 'Nieznany';
         stats.vehicleTypes[type] = (stats.vehicleTypes[type] || 0) + 1;
         
-        // Aktywność godzinowa
+        // Aktywność godzinowa - konwertuj timestamp na lokalny czas
         if (vehicle.timestamp) {
-            const hour = new Date(vehicle.timestamp).getHours();
-            const hourKey = `${hour.toString().padStart(2, '0')}:00`;
+            const vehicleTime = new Date(vehicle.timestamp);
+            const localHour = new Date(vehicleTime.getTime() - (vehicleTime.getTimezoneOffset() * 60000)).getHours();
+            const hourKey = `${localHour.toString().padStart(2, '0')}:00`;
             stats.hourlyActivity[hourKey] = (stats.hourlyActivity[hourKey] || 0) + 1;
         }
     });
