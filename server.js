@@ -2,10 +2,14 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const { Pool } = require('pg');
 
 let _fetchFn;
 let _fetchInProgress = false;
 let _lastFetchStart = 0;
+
+let dbPool = null;
+let dbReady = false;
 
 async function getFetch() {
     if (_fetchFn) return _fetchFn;
@@ -126,6 +130,12 @@ async function fetchAndSaveData() {
         };
 
         fs.writeFileSync(path.join(__dirname, 'pojazdy.json'), JSON.stringify(completeData, null, 2));
+
+        try {
+            await upsertHistory(getTodayDateString(), completeData);
+        } catch (e) {
+            console.log('Nie udało się zapisać danych do bazy.');
+        }
 
         console.log('Kompletne dane zapisano na dysku:', new Date().toLocaleTimeString());
         console.log('vehicles:', Array.isArray(vehicles) ? vehicles.length : 0);
@@ -355,433 +365,126 @@ function initializeServer() {
     }, 120000);
 }
 
-initializeServer();
-
-function checkAndCreateDailyBackup() {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-
-    if (currentHour === 0 && currentMinute <= 5) {
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const backupDate = yesterday.toISOString().split('T')[0];
-        const backupFileName = `daily_backup_${backupDate}.json`;
-        const backupFilePath = path.join(__dirname, backupFileName);
-
-        if (!fs.existsSync(backupFilePath)) {
-            createDailyBackup(backupDate, backupFilePath);
-        }
-    }
+function isValidDateParam(date) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(date);
 }
 
-function createDailyBackup(date, filePath) {
-    try {
-        console.log(`Robienie zrzutu dziennego dla dnia: ${date}`);
-
-        const currentDataPath = path.join(__dirname, 'pojazdy.json');
-        if (!fs.existsSync(currentDataPath)) {
-            console.log('Brak danych do zrzutu dziennego');
-            return;
-        }
-
-        const currentData = JSON.parse(fs.readFileSync(currentDataPath, 'utf8'));
-
-        const dailyBackup = {
-            date: date,
-            backupTime: new Date().toISOString(),
-            summary: {
-                totalVehicles: currentData.vehicles ? currentData.vehicles.length : 0,
-                activeVehicles: currentData.vehicles ? currentData.vehicles.filter(v => v.isActive).length : 0,
-                inactiveVehicles: currentData.vehicles ? currentData.vehicles.filter(v => !v.isActive).length : 0,
-                agencies: currentData.vehicles ? [...new Set(currentData.vehicles.map(v => v.agency))] : [],
-                lastUpdate: currentData.lastUpdate || new Date().toISOString()
-            },
-            data: {
-                vehicles: currentData.vehicles || [],
-                vehicleDatabase: currentData.vehicleDatabase || null,
-                gpsData: currentData.gpsData || null,
-                categories: currentData.categories || []
-            },
-            statistics: generateDailyStatistics(currentData.vehicles || []),
-            metadata: {
-                backupType: 'daily_midnight_backup',
-                version: '1.0',
-                source: 'ztm_tracker_server'
-            }
-        };
-
-        fs.writeFileSync(filePath, JSON.stringify(dailyBackup, null, 2));
-
-        console.log(`Zrzut dzienny zapisany: ${backupFileName}`);
-        console.log(`Podsumowanie: ${dailyBackup.summary.totalVehicles} pojazdów (${dailyBackup.summary.activeVehicles} aktywnych)`);
-
-        generateDailyReport(date, dailyBackup);
-
-        cleanupOldBackups();
-    } catch (error) {
-        console.error('Błąd tworzenia zrzutu dziennego:', error.message);
-    }
+function getTodayDateString() {
+    return new Date().toISOString().slice(0, 10);
 }
 
-function generateDailyStatistics(vehicles) {
-    if (!vehicles || vehicles.length === 0) {
-        return {
-            totalRecords: 0,
-            agencies: {},
-            vehicleTypes: {},
-            hourlyActivity: {},
-            averageRoutesPerVehicle: 0
-        };
+async function initDb() {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+        dbReady = false;
+        dbPool = null;
+        console.log('Nie ustawiono DATABASE_URL, pomijam inicjalizację bazy danych.');
+        return;
     }
 
-    const stats = {
-        totalRecords: vehicles.length,
-        agencies: {},
-        vehicleTypes: {},
-        hourlyActivity: {},
-        averageRoutesPerVehicle: 0
-    };
-
-    vehicles.forEach(vehicle => {
-        const agency = vehicle.agency || 'Nieznany';
-        stats.agencies[agency] = (stats.agencies[agency] || 0) + 1;
-
-        const type = vehicle.type || 'Nieznany';
-        stats.vehicleTypes[type] = (stats.vehicleTypes[type] || 0) + 1;
-
-        if (vehicle.timestamp) {
-            const vehicleTime = new Date(vehicle.timestamp);
-            const localHour = new Date(vehicleTime.getTime() - (vehicleTime.getTimezoneOffset() * 60000)).getHours();
-            const hourKey = `${localHour.toString().padStart(2, '0')}:00`;
-            stats.hourlyActivity[hourKey] = (stats.hourlyActivity[hourKey] || 0) + 1;
-        }
+    dbPool = new Pool({
+        connectionString,
+        ssl: { rejectUnauthorized: false }
     });
 
-    const vehiclesWithLines = vehicles.filter(v => v.line && v.line !== '---');
-    stats.averageRoutesPerVehicle = vehiclesWithLines.length > 0 ?
-        (vehiclesWithLines.length / vehicles.length).toFixed(2) : 0;
-
-    return stats;
-}
-
-function generateDailyReport(date, backupData) {
     try {
-        const reportFileName = `daily_report_${date}.txt`;
-        const reportFilePath = path.join(__dirname, reportFileName);
-
-        const stats = backupData.statistics;
-        const summary = backupData.summary;
-
-        let report = `RAPORT DZIENNY - ZTM Gdańsk Tracker\n`;
-        report += `=====================================\n`;
-        report += `Data: ${date}\n`;
-        report += `Czas zrzutu: ${new Date(backupData.backupTime).toLocaleString('pl-PL')}\n\n`;
-
-        report += `PODSUMOWANIE:\n`;
-        report += `------------\n`;
-        report += `Łącznie pojazdów: ${summary.totalVehicles}\n`;
-        report += `Aktywnych: ${summary.activeVehicles}\n`;
-        report += `Nieaktywnych: ${summary.inactiveVehicles}\n`;
-        report += `Średnia tras/pojazd: ${stats.averageRoutesPerVehicle}\n\n`;
-
-        report += `PRZEWOŹNICY:\n`;
-        report += `------------\n`;
-        Object.entries(stats.agencies).forEach(([agency, count]) => {
-            report += `${agency}: ${count} pojazdów (${((count / summary.totalVehicles) * 100).toFixed(1)}%)\n`;
-        });
-
-        report += `\nTYPY POJAZDÓW:\n`;
-        report += `--------------\n`;
-        Object.entries(stats.vehicleTypes).forEach(([type, count]) => {
-            report += `${type}: ${count} pojazdów\n`;
-        });
-
-        report += `\nAKTYWNOŚĆ GODZINOWA (top 10):\n`;
-        report += `---------------------------\n`;
-        const sortedHours = Object.entries(stats.hourlyActivity)
-            .sort(([, a], [, b]) => b - a)
-            .slice(0, 10);
-
-        sortedHours.forEach(([hour, count]) => {
-            report += `${hour}: ${count} pojazdów\n`;
-        });
-
-        report += `\nOSTATNIA AKTUALIZACJA: ${summary.lastUpdate}\n`;
-        report += `=====================================\n`;
-
-        fs.writeFileSync(reportFilePath, report, 'utf8');
-        console.log(`Raport dzienny zapisany: ${reportFileName}`);
-
-    } catch (error) {
-        console.error('Błąd generowania raportu dziennego:', error.message);
-    }
-}
-
-function cleanupOldBackups() {
-    try {
-        const files = fs.readdirSync(__dirname);
-        const backupFiles = files.filter(file =>
-            file.startsWith('daily_backup_') && file.endsWith('.json')
+        await dbPool.query('select 1');
+        await dbPool.query(
+            'create table if not exists history (date date primary key, payload jsonb not null)'
         );
-
-        backupFiles.sort();
-
-        if (backupFiles.length > 30) {
-            const filesToDelete = backupFiles.slice(0, backupFiles.length - 30);
-
-            filesToDelete.forEach(file => {
-                const filePath = path.join(__dirname, file);
-                fs.unlinkSync(filePath);
-                console.log(`Usunięto stary backup: ${file}`);
-            });
-
-            const reportFiles = files.filter(file =>
-                file.startsWith('daily_report_') && file.endsWith('.txt')
-            );
-            reportFiles.sort();
-
-            if (reportFiles.length > 30) {
-                const reportsToDelete = reportFiles.slice(0, reportFiles.length - 30);
-                reportsToDelete.forEach(file => {
-                    const filePath = path.join(__dirname, file);
-                    fs.unlinkSync(filePath);
-                    console.log(`Usunięto stary raport: ${file}`);
-                });
-            }
-        }
-
-    } catch (error) {
-        console.error('Błąd czyszczenia starych backupów:', error.message);
+        dbReady = true;
+        console.log('Połączenie z bazą PostgreSQL gotowe.');
+    } catch (e) {
+        dbReady = false;
+        console.log('Nie udało się połączyć z bazą PostgreSQL.');
     }
 }
 
-setInterval(checkAndCreateDailyBackup, 5 * 60 * 1000);
-
-app.get('/api/daily-backups', (req, res) => {
-    try {
-        const files = fs.readdirSync(__dirname);
-        const backupFiles = files
-            .filter(file => file.startsWith('daily_backup_') && file.endsWith('.json'))
-            .sort()
-            .reverse();
-
-        const backups = backupFiles.map(file => {
-            const filePath = path.join(__dirname, file);
-            const stats = fs.statSync(filePath);
-            const date = file.replace('daily_backup_', '').replace('.json', '');
-            const backupFileName = `daily_backup_${date}.json`;
-            const backupFilePath = path.join(__dirname, backupFileName);
-
-            return {
-                date: date,
-                filename: file,
-                size: stats.size,
-                created: stats.birthtime.toISOString(),
-                url: `/api/daily-backup/${date}`
-            };
-        });
-
-        res.json({ backups: backups });
-
-    } catch (error) {
-        console.error('Błąd pobierania listy backupów:', error);
-        res.status(500).json({ error: 'Błąd pobierania listy backupów' });
+async function upsertHistory(date, payload) {
+    if (!dbReady || !dbPool) {
+        throw new Error('Baza danych nie jest skonfigurowana.');
     }
-});
+    const payloadJson = JSON.stringify(payload);
+    await dbPool.query(
+        'insert into history(date, payload) values ($1, $2::jsonb) on conflict (date) do update set payload = excluded.payload',
+        [date, payloadJson]
+    );
+}
 
-app.get('/api/daily-backup/:date', (req, res) => {
+app.get('/api/historical/:date', async (req, res) => {
     try {
         const date = req.params.date;
-        const filename = `daily_backup_${date}.json`;
-        const filePath = path.join(__dirname, filename);
-
-        if (fs.existsSync(filePath)) {
-            res.sendFile(filePath);
-        } else {
-            res.status(404).json({ error: `Backup dla dnia ${date} nie istnieje` });
-        }
-
-    } catch (error) {
-        console.error('Błąd pobierania backupu:', error);
-        res.status(500).json({ error: 'Błąd pobierania backupu' });
-    }
-});
-
-app.get('/api/daily-reports', (req, res) => {
-    try {
-        const files = fs.readdirSync(__dirname);
-        const reportFiles = files
-            .filter(file => file.startsWith('daily_report_') && file.endsWith('.txt'))
-            .sort()
-            .reverse();
-
-        const reports = reportFiles.map(file => {
-            const filePath = path.join(__dirname, file);
-            const stats = fs.statSync(filePath);
-            const date = file.replace('daily_report_', '').replace('.txt', '');
-            const reportFileName = `daily_report_${date}.txt`;
-            const reportFilePath = path.join(__dirname, reportFileName);
-
-            return {
-                date: date,
-                filename: file,
-                size: stats.size,
-                created: stats.birthtime.toISOString(),
-                url: `/api/daily-report/${date}`
-            };
-        });
-
-        res.json({ reports: reports });
-
-    } catch (error) {
-        console.error('Błąd pobierania listy raportów:', error);
-        res.status(500).json({ error: 'Błąd pobierania listy raportów' });
-    }
-});
-
-app.get('/api/all-backups-merged', (req, res) => {
-    try {
-        console.log('Łączenie wszystkich backupów dla zakładki nieaktywnych pojazdów...');
-
-        const files = fs.readdirSync(__dirname);
-        const backupFiles = files
-            .filter(file => file.startsWith('daily_backup_') && file.endsWith('.json'))
-            .sort();
-
-        let allVehicles = [];
-        let processedDates = [];
-
-        backupFiles.forEach(file => {
-            try {
-                const filePath = path.join(__dirname, file);
-                const backupData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-
-                if (backupData.data && backupData.data.vehicles) {
-                    const vehiclesWithDate = backupData.data.vehicles.map(vehicle => ({
-                        ...vehicle,
-                        backupDate: backupData.date,
-                        backupSource: 'daily_backup'
-                    }));
-
-                    allVehicles.push(...vehiclesWithDate);
-                    processedDates.push(backupData.date);
-                }
-            } catch (error) {
-                console.log(`Błąd przetwarzania backupu ${file}:`, error.message);
-            }
-        });
-
-        try {
-            const currentDataPath = path.join(__dirname, 'pojazdy.json');
-            if (fs.existsSync(currentDataPath)) {
-                const currentData = JSON.parse(fs.readFileSync(currentDataPath, 'utf8'));
-                if (currentData.vehicles) {
-                    const currentVehiclesWithDate = currentData.vehicles.map(vehicle => ({
-                        ...vehicle,
-                        backupDate: new Date().toISOString().split('T')[0],
-                        backupSource: 'current'
-                    }));
-                    allVehicles.push(...currentVehiclesWithDate);
-                }
-            }
-        } catch (error) {
-            console.log(`Błąd wczytywania aktualnych danych:`, error.message);
-        }
-
-        const uniqueVehicles = [];
-        const seenVehicles = new Map();
-
-        allVehicles.forEach(vehicle => {
-            const key = `${vehicle.id}_${vehicle.agency}_${vehicle.line}`;
-            const existing = seenVehicles.get(key);
-
-            if (!existing || new Date(vehicle.timestamp) > new Date(existing.timestamp)) {
-                seenVehicles.set(key, vehicle);
-            }
-        });
-
-        uniqueVehicles.push(...seenVehicles.values());
-
-        uniqueVehicles.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-        const mergedData = {
-            mergedAt: new Date().toISOString(),
-            totalBackups: backupFiles.length,
-            processedDates: processedDates,
-            summary: {
-                totalVehicles: uniqueVehicles.length,
-                activeVehicles: uniqueVehicles.filter(v => v.isActive).length,
-                inactiveVehicles: uniqueVehicles.filter(v => !v.isActive).length,
-                agencies: [...new Set(uniqueVehicles.map(v => v.agency))],
-                dateRange: processedDates.length > 0 ? {
-                    earliest: processedDates[0],
-                    latest: processedDates[processedDates.length - 1]
-                } : null
-            },
-            vehicles: uniqueVehicles
-        };
-
-        console.log(`Połączono ${backupFiles.length} backupów + dane aktualne`);
-        console.log(`Łącznie pojazdów: ${uniqueVehicles.length} (${uniqueVehicles.filter(v => !v.isActive).length} nieaktywnych)`);
-
-        res.json(mergedData);
-
-    } catch (error) {
-        console.error('Błąd łączenia backupów:', error);
-        res.status(500).json({ error: 'Błąd łączenia backupów' });
-    }
-});
-
-app.get('/api/daily-report/:date', (req, res) => {
-    try {
-        const date = req.params.date;
-        const filename = `daily_report_${date}.txt`;
-        const filePath = path.join(__dirname, filename);
-
-        if (fs.existsSync(filePath)) {
-            res.sendFile(filePath);
-        } else {
-            res.status(404).json({ error: `Raport dla dnia ${date} nie istnieje` });
-        }
-
-    } catch (error) {
-        console.error('Błąd pobierania raportu:', error);
-        res.status(500).json({ error: 'Błąd pobierania raportu' });
-    }
-});
-
-app.get('/api/pojazdy', (req, res) => {
-    const filePath = path.join(__dirname, 'pojazdy.json');
-    if (fs.existsSync(filePath)) {
-        res.sendFile(filePath);
-    } else {
-        res.status(503).json({ vehicles: [], message: 'Brak danych (pojazdy.json nie istnieje jeszcze)' });
-    }
-});
-
-app.delete('/api/historical/:date', (req, res) => {
-    try {
-        const date = req.params.date;
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        if (!isValidDateParam(date)) {
             res.status(400).json({ error: 'Nieprawidłowy format daty. Użyj YYYY-MM-DD.' });
             return;
         }
-
-        const filename = `historical_${date}.json`;
-        const filePath = path.join(__dirname, filename);
-        if (!fs.existsSync(filePath)) {
-            res.status(404).json({ error: `Plik ${filename} nie istnieje.` });
+        if (!dbReady || !dbPool) {
+            res.status(503).json({ error: 'Baza danych nie jest skonfigurowana.' });
             return;
         }
 
-        fs.unlinkSync(filePath);
-        res.json({ message: `Usunięto plik ${filename}.` });
+        const result = await dbPool.query('select payload from history where date = $1', [date]);
+        if (!result.rows || result.rows.length === 0) {
+            res.status(404).json({ error: `Brak danych historycznych dla dnia ${date}.` });
+            return;
+        }
+
+        res.json(result.rows[0].payload);
     } catch (e) {
-        res.status(500).json({ error: e && e.message ? e.message : String(e) });
+        res.status(500).json({ error: 'Błąd pobierania danych historycznych.' });
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`🌐 Serwer działa na porcie ${PORT}`);
+app.post('/api/historical/:date', async (req, res) => {
+    try {
+        const date = req.params.date;
+        if (!isValidDateParam(date)) {
+            res.status(400).json({ error: 'Nieprawidłowy format daty. Użyj YYYY-MM-DD.' });
+            return;
+        }
+        if (!dbReady || !dbPool) {
+            res.status(503).json({ error: 'Baza danych nie jest skonfigurowana.' });
+            return;
+        }
+
+        const payload = req.body;
+        await upsertHistory(date, payload);
+        res.json({ message: `Zapisano dane historyczne dla dnia ${date}.` });
+    } catch (e) {
+        res.status(500).json({ error: 'Błąd zapisu danych historycznych.' });
+    }
 });
+
+app.delete('/api/historical/:date', async (req, res) => {
+    try {
+        const date = req.params.date;
+        if (!isValidDateParam(date)) {
+            res.status(400).json({ error: 'Nieprawidłowy format daty. Użyj YYYY-MM-DD.' });
+            return;
+        }
+        if (!dbReady || !dbPool) {
+            res.status(503).json({ error: 'Baza danych nie jest skonfigurowana.' });
+            return;
+        }
+
+        const result = await dbPool.query('delete from history where date = $1', [date]);
+        if (!result || result.rowCount === 0) {
+            res.status(404).json({ error: `Brak danych historycznych dla dnia ${date}.` });
+            return;
+        }
+
+        res.json({ message: `Usunięto dane historyczne dla dnia ${date}.` });
+    } catch (e) {
+        res.status(500).json({ error: 'Błąd usuwania danych historycznych.' });
+    }
+});
+
+async function startServer() {
+    await initDb();
+    initializeServer();
+    app.listen(PORT, () => {
+        console.log(`🌐 Serwer działa na porcie ${PORT}`);
+    });
+}
+
+startServer();
