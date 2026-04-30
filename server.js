@@ -4,6 +4,8 @@ const fs = require('fs');
 const path = require('path');
 
 let _fetchFn;
+let _fetchInProgress = false;
+let _lastFetchStart = 0;
 
 async function getFetch() {
     if (_fetchFn) return _fetchFn;
@@ -33,13 +35,20 @@ async function fetchJson(url, { timeoutMs = 15000 } = {}) {
     const controller = hasAbortController ? new AbortController() : null;
     const timeout = hasAbortController ? setTimeout(() => controller.abort(), timeoutMs) : null;
 
+    const hardTimeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error(`TIMEOUT ${timeoutMs}ms`)), timeoutMs + 250);
+    });
+
     try {
-        const res = await fetchFn(url, controller ? { signal: controller.signal } : undefined);
+        const res = await Promise.race([
+            fetchFn(url, controller ? { signal: controller.signal } : undefined),
+            hardTimeout
+        ]);
         if (!res || !res.ok) {
             const status = res ? res.status : 'NO_RESPONSE';
             throw new Error(`HTTP ${status}`);
         }
-        return await res.json();
+        return await Promise.race([res.json(), hardTimeout]);
     } finally {
         if (timeout) clearTimeout(timeout);
     }
@@ -53,12 +62,33 @@ app.use(express.json());
 app.use(express.static(__dirname));
 
 async function fetchAndSaveData() {
+    if (_fetchInProgress) {
+        const ageMs = Date.now() - _lastFetchStart;
+        if (ageMs < 60000) {
+            console.log('Pobieranie już trwa, pomijam cykl.');
+            return;
+        }
+        console.log('Poprzednie pobieranie trwa zbyt długo, resetuję blokadę.');
+        _fetchInProgress = false;
+    }
+
+    _fetchInProgress = true;
+    _lastFetchStart = Date.now();
+
+    const guardTimer = setTimeout(() => {
+        if (_fetchInProgress) {
+            console.log('Pobieranie przekroczyło limit czasu, zwalniam blokadę.');
+            _fetchInProgress = false;
+        }
+    }, 70000);
+
     try {
         console.log('Rozpoczynam pobieranie danych z API...');
 
-        const vehicleUrl = 'https://files.cloudgdansk.pl/d/otwarte-dane/ztm/baza-pojazdow.json?v=2';
-        const gpsUrl = 'https://ckan2.multimediagdansk.pl/gpsPositions?v=2';
-        const categoriesUrl = 'https://ckan.multimediagdansk.pl/dataset/c24aa637-3619-4dc2-a171-a23eec8f2172/resource/8b5175e6-7621-4149-a9f8-a29696c73d8d/download/kategorie.json';
+        const t = Date.now();
+        const vehicleUrl = `https://files.cloudgdansk.pl/d/otwarte-dane/ztm/baza-pojazdow.json?v=2&t=${t}`;
+        const gpsUrl = `https://ckan2.multimediagdansk.pl/gpsPositions?v=2&t=${t}`;
+        const categoriesUrl = `https://ckan.multimediagdansk.pl/dataset/c24aa637-3619-4dc2-a171-a23eec8f2172/resource/8b5175e6-7621-4149-a9f8-a29696c73d8d/download/kategorie.json?t=${t}`;
 
         let vehicleDatabase = null;
         try {
@@ -102,6 +132,9 @@ async function fetchAndSaveData() {
         console.log('Połączone dane (aktywne + historyczne):', vehicles.length);
     } catch (e) {
         console.error('Błąd pobierania danych:', e && e.message ? e.message : e);
+    } finally {
+        clearTimeout(guardTimer);
+        _fetchInProgress = false;
     }
 }
 
