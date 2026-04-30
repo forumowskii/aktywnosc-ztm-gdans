@@ -10,6 +10,7 @@ let _lastFetchStart = 0;
 
 let dbPool = null;
 let dbReady = false;
+let dbConfigured = false;
 
 async function getFetch() {
     if (_fetchFn) return _fetchFn;
@@ -137,7 +138,7 @@ async function fetchAndSaveData() {
             console.log('Nie udało się zapisać danych do bazy.');
         }
 
-        console.log('Kompletne dane zapisano na dysku:', new Date().toLocaleTimeString());
+        console.log('Kompletne dane zapisano na dysku:', getWarsawTimeString());
         console.log('vehicles:', Array.isArray(vehicles) ? vehicles.length : 0);
         console.log('Połączone dane (aktywne + historyczne):', vehicles.length);
     } catch (e) {
@@ -370,12 +371,32 @@ function isValidDateParam(date) {
 }
 
 function getTodayDateString() {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Warsaw',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).formatToParts(new Date());
+    const year = parts.find(p => p.type === 'year')?.value;
+    const month = parts.find(p => p.type === 'month')?.value;
+    const day = parts.find(p => p.type === 'day')?.value;
+    if (year && month && day) return `${year}-${month}-${day}`;
     return new Date().toISOString().slice(0, 10);
 }
 
+function getWarsawTimeString() {
+    return new Intl.DateTimeFormat('pl-PL', {
+        timeZone: 'Europe/Warsaw',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    }).format(new Date());
+}
+
 async function initDb() {
-    const connectionString = process.env.DATABASE_URL;
-    if (!connectionString) {
+    const connectionString = (process.env.DATABASE_URL || '').trim();
+    dbConfigured = Boolean(connectionString);
+    if (!dbConfigured) {
         dbReady = false;
         dbPool = null;
         console.log('Nie ustawiono DATABASE_URL, pomijam inicjalizację bazy danych.');
@@ -418,8 +439,12 @@ app.get('/api/historical/:date', async (req, res) => {
             res.status(400).json({ error: 'Nieprawidłowy format daty. Użyj YYYY-MM-DD.' });
             return;
         }
+        if (!dbConfigured) {
+            res.status(503).json({ error: 'Brak DATABASE_URL (zmienna środowiskowa nieustawiona).' });
+            return;
+        }
         if (!dbReady || !dbPool) {
-            res.status(503).json({ error: 'Baza danych nie jest skonfigurowana.' });
+            res.status(502).json({ error: 'Połączenie z bazą danych nie działa.' });
             return;
         }
 
@@ -442,8 +467,12 @@ app.post('/api/historical/:date', async (req, res) => {
             res.status(400).json({ error: 'Nieprawidłowy format daty. Użyj YYYY-MM-DD.' });
             return;
         }
+        if (!dbConfigured) {
+            res.status(503).json({ error: 'Brak DATABASE_URL (zmienna środowiskowa nieustawiona).' });
+            return;
+        }
         if (!dbReady || !dbPool) {
-            res.status(503).json({ error: 'Baza danych nie jest skonfigurowana.' });
+            res.status(502).json({ error: 'Połączenie z bazą danych nie działa.' });
             return;
         }
 
@@ -462,8 +491,12 @@ app.delete('/api/historical/:date', async (req, res) => {
             res.status(400).json({ error: 'Nieprawidłowy format daty. Użyj YYYY-MM-DD.' });
             return;
         }
+        if (!dbConfigured) {
+            res.status(503).json({ error: 'Brak DATABASE_URL (zmienna środowiskowa nieustawiona).' });
+            return;
+        }
         if (!dbReady || !dbPool) {
-            res.status(503).json({ error: 'Baza danych nie jest skonfigurowana.' });
+            res.status(502).json({ error: 'Połączenie z bazą danych nie działa.' });
             return;
         }
 
