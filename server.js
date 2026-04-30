@@ -2,11 +2,18 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const fetch = require('node-fetch');
 const app = express();
 const PORT = 3000;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.static(__dirname));
+
+// Endpoint dla strony głównej
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 // Funkcja pobierająca i zapisująca WSZYSTKIE dane co 2 minuty
 setInterval(async () => {
